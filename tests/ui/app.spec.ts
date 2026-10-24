@@ -583,7 +583,7 @@ test("desktop wizard shows required cleanup downloads, progress and retry throug
     });
     if (label === "Settings") {
       const hint = page.getByText(
-        "Clipboard paste restores previous contents when safe. If a clipboard format cannot be preserved, CridVoice automatically uses Unicode typing. Unicode typing leaves the clipboard untouched.",
+        "Clipboard paste restores previous contents when safe. If a clipboard format cannot be preserved, CridVoice automatically uses Unicode typing. Turn on the option below to also keep your completed dictation on the clipboard.",
       );
       await expect(hint).toBeVisible();
       await hint.scrollIntoViewIfNeeded();
@@ -1629,6 +1629,88 @@ test("download and shared buttons have even neutral hover and visible keyboard f
       .click();
   }
 });
+test("completed dictation clipboard preference persists independently of Unicode insertion without settings flicker", async ({
+  page,
+}) => {
+  const settings = structuredClone(defaultSettings);
+  settings.setupComplete = true;
+  settings.general.microphone = "Synthetic saved USB microphone";
+  await page.addInitScript((initial) => {
+    if (!localStorage.getItem("cridvoice-preview"))
+      localStorage.setItem("cridvoice-preview", JSON.stringify(initial));
+  }, settings);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("button", { name: "Windows", exact: true })
+    .click();
+  const insertion = page.getByRole("combobox", {
+    name: "Text insertion",
+    exact: true,
+  });
+  await insertion.selectOption("unicode");
+  const saved = () =>
+    page.evaluate(
+      () =>
+        JSON.parse(
+          localStorage.getItem("cridvoice-preview")!,
+        ) as typeof defaultSettings,
+    );
+  await expect
+    .poll(async () => (await saved()).general.insertionMethod)
+    .toBe("unicode");
+  const copy = page.getByRole("switch", {
+    name: "Copy dictation to clipboard",
+    exact: true,
+  });
+  await expect(copy).toHaveAttribute("aria-checked", "false");
+  await expect(
+    page.getByText(/Replaces your previous clipboard contents/),
+  ).toBeVisible();
+  await page.evaluate(() => {
+    const state = window as unknown as { __copySettingDisabledChanges: number };
+    state.__copySettingDisabledChanges = 0;
+    const fields = document.querySelector(".settings-fields")!;
+    new MutationObserver((changes) => {
+      state.__copySettingDisabledChanges += changes.length;
+    }).observe(fields, { attributes: true, attributeFilter: ["disabled"] });
+  });
+  await copy.click();
+  await expect(copy).toHaveAttribute("aria-checked", "true");
+  await expect
+    .poll(async () => (await saved()).general.copyDictationToClipboard)
+    .toBe(true);
+  await expect(insertion).toBeEnabled();
+  await expect(insertion).toHaveValue("unicode");
+  await expect(
+    page.getByRole("switch", { name: "Launch at startup", exact: true }),
+  ).toBeEnabled();
+  expect((await saved()).general.microphone).toBe(
+    "Synthetic saved USB microphone",
+  );
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { __copySettingDisabledChanges: number })
+          .__copySettingDisabledChanges,
+    ),
+  ).toBe(0);
+  await page.reload();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("button", { name: "Windows", exact: true })
+    .click();
+  await expect(copy).toHaveAttribute("aria-checked", "true");
+  await expect(insertion).toHaveValue("unicode");
+  await copy.click();
+  await expect
+    .poll(async () => (await saved()).general.copyDictationToClipboard)
+    .toBe(false);
+  await expect(insertion).toHaveValue("unicode");
+});
+
 test("theme, vocabulary, provider configuration, and navigation are functional", async ({
   page,
 }) => {

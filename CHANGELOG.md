@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.18
+
+- Keep a persistent Windows accessibility connection and verify the actual editor instead of comparing transient text fragments. Recreated editors require strong identity evidence; changed fields, windows and password controls remain protected.
+- Add an optional completed-dictation clipboard copy for either insertion method, including focus-related insertion failures, without replaying input. Cancelled/test/review-required output is excluded.
+- Add Light, Balanced and Thorough rewrite strength for Text, with clearer tone descriptions and examples that reflect both controls. Improve grammar, spoken corrections and multi-topic brain dumps while keeping coding/CLI prompts separate.
+- Patch the affected HTTPS trust dependencies and development test dependencies, cap AI JSON responses at 2 MiB, and keep development servers on loopback. Document the security review and its limits.
+
 ## 0.1.17
 
 - Add a background-audio reduction slider from 10% to 90%, defaulting to a stronger 60% reduction. The control shows how much playback volume remains and saves on release or keyboard confirmation.

@@ -15,6 +15,7 @@ Settings are serialized as camelCase JSON. Edit through the app; stop it before 
 | `cleanup.device` | `auto` | Auto, GPU, or CPU; managed GPU text uses Vulkan |
 | `cleanup.providerId` | empty | Selected text connection UUID |
 | `cleanup.style` | `faithful` | Faithful, professional, casual, concise, or code |
+| `cleanup.rewriteStrength` | `balanced` | Text editing amount: `light` for grammar/minimal wording, `balanced` for clearer phrasing, or `thorough` for organizing longer thoughts; meaning and facts remain constraints at every level |
 | `cleanup.outputMode` | `text` | `text` for prose, `code` for literal code/CLI dictation, or `generate` for code from spoken instructions |
 | `cleanup.codeLanguage` | empty / Auto | Optional freeform language/shell override; at most 80 characters on one line |
 | `providers` | `[]` | Connection records; see below |
@@ -32,6 +33,7 @@ Settings are serialized as camelCase JSON. Edit through the app; stop it before 
 | `shortcuts.rewrite` | `Ctrl+Alt+R` | Start/stop selected-text rewrite |
 | `general.startup` | `false` | Windows user startup |
 | `general.insertionMethod` | `clipboard` | Clipboard paste with restoration and pre-write preservation fallback to Unicode typing, or `unicode` typing |
+| `general.copyDictationToClipboard` | `false` | Also leave completed shortcut dictation on the clipboard, including when target insertion fails; replaces earlier clipboard contents |
 | `general.saveHistory` | `true` | Save original and final transcript text |
 | `general.context` | `true` | Read available context in the focused control |
 | `general.microphone` | empty | Windows default, or exact input device name |
@@ -41,6 +43,8 @@ Settings are serialized as camelCase JSON. Edit through the app; stop it before 
 | `general.historyDays` | `0` | 0 = until deleted; otherwise retention days |
 
 The preview model is fixed to `whisper-preview` on a two-thread CPU worker and is not a final-model selection or a new persisted setting. Setup requires it only when `transcription.mode` is `local` and `appearance.livePreview` is enabled. Provider speech keeps its selected provider and cadence. Final speech settings continue to control the complete-take recognition.
+
+**Settings > Windows & storage > Copy dictation to clipboard** works with either insertion method. It runs once after the insertion attempt and temporary clipboard restoration, so the completed result remains available for Ctrl + V when insertion is blocked. This opt-in intentionally replaces whatever was on the clipboard at completion, including something copied while the take was processing. Cancelled/stale takes, test recordings, raw cleanup-failure fallbacks and code requiring review do not auto-copy. Generated code and multiline terminal output retain their review-and-Copy flow. A copy failure never retries insertion. Existing settings keep this option off until enabled.
 
 ## Interface preferences
 

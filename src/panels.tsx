@@ -39,7 +39,11 @@ import CodingControls from "./CodingControls";
 import ApplicationStyleEditor from "./ApplicationStyleEditor";
 import ProviderModelPicker from "./ProviderModelPicker";
 import ShortcutRecorder, { shortcutProblem } from "./ShortcutRecorder";
-import { writingExample } from "./writingExamples";
+import {
+  rewriteStrengths,
+  writingExample,
+  writingStyleDescription,
+} from "./writingExamples";
 import type {
   Settings,
   Snapshot,
@@ -47,6 +51,7 @@ import type {
   Provider,
   EngineStatus,
   SettingsUpdate,
+  RewriteStrength,
 } from "./types";
 export type PanelProps = {
   settings: Settings;
@@ -944,7 +949,11 @@ export function Styles({
     [style, setStyle] = useState("professional"),
     [prompt, setPrompt] = useState(""),
     [saving, setSaving] = useState(false);
-  const example = writingExample(settings.cleanup.style);
+  const rewriteStrength = settings.cleanup.rewriteStrength || "balanced";
+  const strength =
+    rewriteStrengths.find((value) => value.value === rewriteStrength) ||
+    rewriteStrengths[1];
+  const example = writingExample(settings.cleanup.style, rewriteStrength);
   const exampleStyle =
     writingStyles.find((style) => style.value === settings.cleanup.style)
       ?.label || writingStyles[0].label;
@@ -993,22 +1002,51 @@ export function Styles({
       </Section>
       <Section
         title="Default writing style"
-        description="Writing styles apply to Text mode. Corrections and punctuation preserve your intended meaning."
+        description="Style sets the tone. Rewrite strength controls how much CridVoice rephrases and organizes your Text."
       >
-        <Field label="Default writing style">
-          <Select
+        <div className="form-grid">
+          <Field
             label="Default writing style"
-            value={settings.cleanup.style}
-            onChange={(v) =>
-              update((current) => ({
-                cleanup: { ...current.cleanup, style: v },
-              }))
-            }
-            options={writingStyles}
-          />
-        </Field>
+            hint={writingStyleDescription(settings.cleanup.style)}
+          >
+            <Select
+              label="Default writing style"
+              value={settings.cleanup.style}
+              disabled={controlsDisabled || saving}
+              onChange={(v) =>
+                update((current) => ({
+                  cleanup: { ...current.cleanup, style: v },
+                }))
+              }
+              options={writingStyles}
+            />
+          </Field>
+          <Field label="Rewrite strength" hint={strength.description}>
+            <Select
+              label="Rewrite strength"
+              value={rewriteStrength}
+              disabled={controlsDisabled || saving}
+              onChange={(value) =>
+                update((current) => ({
+                  cleanup: {
+                    ...current.cleanup,
+                    rewriteStrength: value as RewriteStrength,
+                  },
+                }))
+              }
+              options={rewriteStrengths}
+            />
+          </Field>
+        </div>
+        <p className="helper">
+          Your meaning, facts, uncertainty and distinct points come first at every
+          strength. Application rules change tone; this strength applies across
+          Text styles.
+        </p>
         <div className="style-example">
-          <strong>Style example · {exampleStyle}</strong>
+          <strong>
+            Style example · {exampleStyle} · {strength.name}
+          </strong>
           <small>Illustrative result. Exact AI wording may vary.</small>
           <span>YOU SAY</span>
           <p>{example.input}</p>
@@ -1017,22 +1055,24 @@ export function Styles({
         </div>
         {settings.cleanup.mode === "off" && (
           <p className="helper">
-            Text cleanup is off. Enable cleanup to apply writing styles; this
-            example is a local illustration.
+            Text cleanup is off. Enable cleanup to apply writing styles and
+            rewrite strength; this example is a local illustration.
           </p>
         )}
         {settings.cleanup.outputMode !== "text" && (
           <p className="helper">
             Writing styles apply to Text output. Your current code or generation
             mode uses its own instructions; selecting a writing style does not
-            change the output mode.
+            change the output mode. Rewrite strength also applies only to Text.
           </p>
         )}
         {settings.cleanup.style === "code" && (
           <p className="helper">
-            Code &amp; technical is a Text writing style that preserves
-            identifiers. Choose Dictate code or commands above for literal
-            syntax conversion.
+            Technical is a Text writing style: it preserves code terms and
+            identifiers within prose. It does not turn speech into code. For
+            actual code or CLI commands, choose Dictate code or commands in
+            Dictation output above. Writing style and rewrite strength do not
+            change code or command modes.
           </p>
         )}
       </Section>
@@ -1638,7 +1678,7 @@ export function SettingsPanel({
         <Section id="settings-windows" title="Windows & storage">
           <Field
             label="Text insertion"
-            hint="Clipboard paste restores previous contents when safe. If a clipboard format cannot be preserved, CridVoice automatically uses Unicode typing. Unicode typing leaves the clipboard untouched."
+            hint="Clipboard paste restores previous contents when safe. If a clipboard format cannot be preserved, CridVoice automatically uses Unicode typing. Turn on the option below to also keep your completed dictation on the clipboard."
           >
             <Select
               label="Text insertion"
@@ -1658,11 +1698,21 @@ export function SettingsPanel({
                 },
                 {
                   value: "unicode",
-                  label: "Unicode typing · no clipboard use",
+                  label: "Unicode typing",
                 },
               ]}
             />
           </Field>
+          <Toggle
+            label="Copy dictation to clipboard"
+            description="Keep completed shortcut dictation ready for Ctrl + V, even if automatic insertion fails. Replaces your previous clipboard contents. Works with either insertion method. Test recordings, cancelled takes and code awaiting review are excluded."
+            checked={s.general.copyDictationToClipboard}
+            onChange={(v) =>
+              change((current) => ({
+                general: { ...current.general, copyDictationToClipboard: v },
+              }))
+            }
+          />
           <Toggle
             label="Launch at startup"
             description="Start quietly in the system tray when you sign in."

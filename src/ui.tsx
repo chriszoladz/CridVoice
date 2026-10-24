@@ -313,7 +313,7 @@ export const writingStyles = [
   { value: "professional", label: "Professional" },
   { value: "casual", label: "Casual" },
   { value: "concise", label: "Concise" },
-  { value: "code", label: "Code & technical" },
+  { value: "code", label: "Technical · preserve code terms" },
 ];
 export const bytes = (n: number) =>
   n >= 1e9

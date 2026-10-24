@@ -730,6 +730,28 @@ async fn process_recording(app: &AppHandle, recording: FinishedRecording) -> Res
     if state.generation.load(Ordering::SeqCst) != generation {
         return Ok(());
     }
+    // Commit a persistent copy only after temporary paste restoration, under
+    // the lifecycle lock. A cancelled/stale take must never replace the clipboard.
+    let copy_requested = s.general.copy_dictation_to_clipboard
+        && should_insert
+        && !review_required
+        && cleanup_error.is_none();
+    let clipboard_error = if copy_requested {
+        crate::clipboard::copy_result(&text, app, &|| {
+            state.generation.load(Ordering::SeqCst) == generation
+        })
+        .err()
+    } else {
+        None
+    };
+    if copy_requested && clipboard_error.is_none() {
+        if let Some(error) = insertion_error.as_mut() {
+            error.push_str(" Your dictation is on the clipboard.");
+            if !error.contains("may already be inserted") {
+                error.push_str(" Press Ctrl + V to paste it.");
+            }
+        }
+    }
     let history_entry = s.general.save_history.then(|| HistoryEntry {
         id: uuid::Uuid::new_v4().to_string(),
         created_at: chrono::Utc::now().to_rfc3339(),
@@ -770,8 +792,17 @@ async fn process_recording(app: &AppHandle, recording: FinishedRecording) -> Res
             let _ = window.set_focus();
         }
     }
-    if let Some(e) = cleanup_error.or(insertion_error).or(history_error) {
-        return Err(e);
+    let errors: Vec<_> = [
+        cleanup_error,
+        insertion_error,
+        clipboard_error,
+        history_error,
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    if !errors.is_empty() {
+        return Err(errors.join(" "));
     }
     Ok(())
 }

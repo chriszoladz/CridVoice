@@ -873,10 +873,7 @@ impl Inference {
                 response.status().as_u16()
             ));
         }
-        let value: Value = response
-            .json()
-            .await
-            .map_err(|_| "Invalid transcription response.".to_string())?;
+        let value = core::response_json_limited(response).await?;
         if !value["text"].is_string() {
             return Err("Transcription response did not contain text.".into());
         }
@@ -894,7 +891,9 @@ impl Inference {
         let output = self
             .cleanup_inner(app, s, raw, ctx, rewrite, context)
             .await?;
-        Ok(crate::coding::normalize_output(s, raw, rewrite, output))
+        let mut output = crate::coding::normalize_output(s, raw, rewrite, output);
+        output.text = core::format_text_cleanup_output(s, raw, output.text, rewrite);
+        Ok(output)
     }
     async fn cleanup_inner(
         &self,
@@ -1073,10 +1072,7 @@ impl Inference {
                         "Local cleanup warm-up failed. Retry loading the selected models.".into(),
                     );
                 }
-                let value: Value = response
-                    .json()
-                    .await
-                    .map_err(|_| "Local cleanup warm-up returned invalid JSON.".to_string())?;
+                let value = core::response_json_limited(response).await?;
                 if !value["choices"][0]["message"]["content"].is_string() {
                     return Err("Local cleanup warm-up returned no completion.".into());
                 }

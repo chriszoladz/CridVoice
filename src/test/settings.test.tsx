@@ -52,6 +52,45 @@ function panel(
 }
 
 describe("Persisted settings", () => {
+  it("makes completed-dictation copying optional without replacing the current insertion method", () => {
+    const settings = structuredClone(defaultSettings);
+    settings.general.insertionMethod = "unicode";
+    expect(settings.general.copyDictationToClipboard).toBe(false);
+    const update = vi.fn(async (_patch: SettingsUpdate) => {});
+    const view = render(panel(settings, update));
+    const copy = screen.getByRole("switch", {
+      name: "Copy dictation to clipboard",
+    });
+    expect(copy).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByLabelText("Text insertion")).toHaveValue("unicode");
+    expect(
+      screen.getByText(/Replaces your previous clipboard contents/),
+    ).toBeVisible();
+    fireEvent.click(copy);
+    const enable = update.mock.calls[0][0];
+    const latest = structuredClone(settings);
+    latest.general.microphone = "New USB microphone";
+    latest.general.duckingReductionPercent = 80;
+    expect(typeof enable === "function" && enable(latest)).toEqual({
+      general: { ...latest.general, copyDictationToClipboard: true },
+    });
+    view.rerender(
+      panel(
+        {
+          ...settings,
+          general: { ...settings.general, copyDictationToClipboard: true },
+        },
+        update,
+      ),
+    );
+    expect(copy).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByLabelText("Text insertion")).toHaveValue("unicode");
+    fireEvent.click(copy);
+    const disable = update.mock.calls[1][0];
+    expect(typeof disable === "function" && disable(latest)).toEqual({
+      general: { ...latest.general, copyDictationToClipboard: false },
+    });
+  });
   it("previews reduction while dragging and saves once on release while preserving newer settings", () => {
     const settings = structuredClone(defaultSettings);
     settings.general.duckBackgroundAudio = true;

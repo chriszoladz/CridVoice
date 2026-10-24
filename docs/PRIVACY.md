@@ -34,6 +34,8 @@ Context is captured at recording start and used only for that session. Ordinary 
 
 The clipboard insertion lease uses a unique per-paste marker and exact Unicode text to verify the temporary publication after the write handle closes. A changed sequence needs fresh proof before insertion or restoration; foreign clipboard updates remain protected. The marker is used locally for this operation.
 
+Optional **Copy dictation to clipboard** deliberately leaves completed shortcut dictation on the clipboard after insertion or a focus-related insertion failure. It is off by default, works with either insertion method, and replaces previous clipboard contents at completion. This is separate from temporary paste restoration. Cancelled/stale takes, test recordings, failed-cleanup raw fallbacks and output awaiting code review are excluded. Persistent copies also carry Windows clipboard history/cloud/monitor exclusion flags; third-party clipboard tools may implement their own behavior. Clipboard text remains readable by applications with clipboard access until replaced.
+
 ## Technical output
 
 Code dictation and code generation use the selected speech and text engines. A selected cloud speech provider receives audio; a selected cloud text provider receives the recognized request and permitted editor/file/shell hints. Literal dictation excludes raw selected/nearby text; explicit rewrites and generation may include it when enabled. Auto language detection uses those context hints only when application context is enabled. Password controls remain excluded.

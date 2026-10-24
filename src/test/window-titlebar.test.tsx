@@ -27,10 +27,10 @@ vi.mock("../bridge", () => ({ desktop: false }));
 import WindowTitlebar from "../WindowTitlebar";
 
 let resized: EventCallback<PhysicalSize>;
-let off: ReturnType<typeof vi.fn>;
+let off: ReturnType<typeof vi.fn<() => void>>;
 beforeEach(() => {
   vi.resetAllMocks();
-  off = vi.fn();
+  off = vi.fn<() => void>();
   api.getCurrentWindow.mockReturnValue(api);
   api.isMaximized.mockResolvedValue(false);
   api.onResized.mockImplementation(async (handler) => {

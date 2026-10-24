@@ -624,11 +624,14 @@ mod tests {
         assert_eq!(restored.cleanup.output_mode, "text");
         assert!(restored.cleanup.code_language.is_empty());
         assert!(restored.validate().is_ok());
-        assert!(
-            crate::core::cleanup_messages(&restored, "fixture", &Context::default(), false)
-                .0
-                .contains("Style: code.")
-        );
+        let (_, user) =
+            crate::core::cleanup_messages(&restored, "fixture", &Context::default(), false);
+        let input: serde_json::Value = serde_json::from_str(&user).unwrap();
+        assert!(input["writingStyle"]
+            .as_str()
+            .unwrap()
+            .starts_with("Technical:"));
+        assert_eq!(input["mode"], "dictation");
     }
 
     #[test]
@@ -663,10 +666,22 @@ mod tests {
             &Context::default(),
             false,
         );
-        assert!(system.contains("no commentary, quotes, Markdown fences, or reasoning"));
-        assert!(system.contains("Style: faithful."));
-        assert!(system.contains("edit only the current transcript"));
+        for constraint in [
+            "no commentary",
+            "surrounding quotation marks",
+            "Markdown fences",
+            "or reasoning",
+        ] {
+            assert!(system.contains(constraint));
+        }
+        assert!(system
+            .to_ascii_lowercase()
+            .contains("edit only the current transcript"));
         let input: serde_json::Value = serde_json::from_str(&user).unwrap();
+        assert!(input["writingStyle"]
+            .as_str()
+            .unwrap()
+            .starts_with("Natural:"));
         assert_eq!(input["mode"], "dictation");
         assert_eq!(input["transcript"], "fixture");
         assert!(input.get("windowTitle").is_none());

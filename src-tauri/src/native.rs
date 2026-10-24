@@ -1,8 +1,13 @@
 use crate::{
-    core::{parse_shortcut, Context, Shortcut},
+    core::{parse_shortcut, Context, FocusAnchor, Shortcut},
     desktop,
 };
-use std::sync::{Mutex, OnceLock};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    mpsc::{self, SyncSender},
+    Arc, Mutex, OnceLock,
+};
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 #[path = "shortcut_capture.rs"]
 mod shortcut_capture;
@@ -769,6 +774,9 @@ unsafe extern "system" fn hook(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRE
 }
 pub fn install_shortcuts(app: &AppHandle) -> Result<(), String> {
     let _ = APP.set(app.clone());
+    // Create the apartment/client while the app starts, without inspecting any
+    // other application's contents. First dictation can use the warmed worker.
+    let _ = focus_worker();
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || unsafe {
         let hook = SetWindowsHookExW(WH_KEYBOARD_LL, Some(hook), None, 0);
@@ -829,7 +837,7 @@ pub fn context(read_text: bool) -> Context {
 }
 pub fn context_for_output(read_text: bool, technical: bool) -> Context {
     capture_target_with_retry(
-        || capture_context(read_text, technical, true),
+        || capture_context(read_text, technical, true, &[]),
         std::thread::sleep,
     )
 }
@@ -857,16 +865,137 @@ fn capture_target_with_retry(
     }
     context
 }
-fn insertion_context() -> Context {
+fn insertion_context(target: &Context) -> Context {
     // Insertion needs fresh focus and password checks, never another process
     // image lookup or the target's text/title. This also keeps every batch small.
-    capture_context(false, false, false)
+    capture_context(false, false, false, &target.focused_runtime_id)
 }
-fn capture_context(read_text: bool, technical: bool, identify_app: bool) -> Context {
+
+const FOCUS_REQUEST_TIMEOUT: Duration = Duration::from_millis(500);
+static FOCUS_WORKER: OnceLock<Option<SyncSender<FocusRequest>>> = OnceLock::new();
+
+struct FocusRequest {
+    hwnd: isize,
+    read_text: bool,
+    technical: bool,
+    identify_app: bool,
+    expected_id: Vec<i32>,
+    needed: Arc<AtomicBool>,
+    reply: SyncSender<Context>,
+}
+
+fn focus_worker() -> Option<&'static SyncSender<FocusRequest>> {
+    FOCUS_WORKER
+        .get_or_init(|| {
+            // At most one waiting request. A stuck provider cannot accumulate
+            // work or make a later take consume an old focus response.
+            let (sender, receiver) = mpsc::sync_channel::<FocusRequest>(1);
+            std::thread::Builder::new()
+                .name("input-focus".into())
+                .spawn(move || unsafe {
+                    if CoInitializeEx(None, COINIT_MULTITHREADED).is_err() {
+                        return;
+                    }
+                    struct Apartment;
+                    impl Drop for Apartment {
+                        fn drop(&mut self) {
+                            unsafe { CoUninitialize() };
+                        }
+                    }
+                    let _apartment = Apartment;
+                    let Ok(ui) = CoCreateInstance::<_, IUIAutomation>(
+                        &CUIAutomation8,
+                        None,
+                        CLSCTX_INPROC_SERVER,
+                    )
+                    .or_else(|_| CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER)) else {
+                        return;
+                    };
+                    if let Ok(options) = ui.cast::<IUIAutomation2>() {
+                        let _ = options.SetConnectionTimeout(200);
+                        let _ = options.SetTransactionTimeout(200);
+                    }
+                    // Keep both the client apartment and original provider
+                    // alive for the take. Recreating them between capture and
+                    // insertion can invalidate Chromium accessibility nodes.
+                    let mut original: Option<(Vec<i32>, IUIAutomationElement)> = None;
+                    while let Ok(request) = receiver.recv() {
+                        if !request.needed.load(Ordering::Acquire) {
+                            continue;
+                        }
+                        let (context, element) = sample_context(&ui, &request, original.as_ref());
+                        if request.needed.load(Ordering::Acquire) {
+                            if request.identify_app && !context.focused_runtime_id.is_empty() {
+                                original = element.map(|element| (context.focused_runtime_id.clone(), element));
+                            }
+                            let _ = request.reply.send(context);
+                        }
+                    }
+                })
+                .ok()
+                .map(|_| sender)
+        })
+        .as_ref()
+}
+
+fn capture_context(
+    read_text: bool,
+    technical: bool,
+    identify_app: bool,
+    expected_id: &[i32],
+) -> Context {
+    let hwnd = unsafe { GetForegroundWindow().0 as isize };
+    let Some(sender) = focus_worker() else {
+        return Context::default();
+    };
+    let (reply, result) = mpsc::sync_channel(1);
+    let needed = Arc::new(AtomicBool::new(true));
+    let request = FocusRequest {
+        hwnd,
+        read_text,
+        technical,
+        identify_app,
+        expected_id: expected_id.to_vec(),
+        needed: needed.clone(),
+        reply,
+    };
+    let response = if sender.try_send(request).is_ok() {
+        result.recv_timeout(FOCUS_REQUEST_TIMEOUT).ok()
+    } else {
+        None
+    };
+    needed.store(false, Ordering::Release);
+    context_after_focus_response(response, hwnd, unsafe { GetForegroundWindow().0 as isize })
+}
+
+fn context_after_focus_response(
+    response: Option<Context>,
+    requested_window: isize,
+    current_window: isize,
+) -> Context {
+    match response {
+        // A real UIA rejection, including HWND=0, must remain rejected.
+        Some(context) => context,
+        // A cold/busy worker has not observed a field at all. Preserve only
+        // independently rechecked window metadata so bounded capture retries
+        // can use the warmed worker. Empty identity still forbids insertion.
+        None if requested_window != 0 && current_window == requested_window => Context {
+            hwnd: requested_window,
+            ..Default::default()
+        },
+        None => Context::default(),
+    }
+}
+
+unsafe fn sample_context(
+    ui: &IUIAutomation,
+    request: &FocusRequest,
+    original: Option<&(Vec<i32>, IUIAutomationElement)>,
+) -> (Context, Option<IUIAutomationElement>) {
     unsafe {
-        let hwnd = GetForegroundWindow();
+        let hwnd = HWND(request.hwnd as *mut _);
         let mut ctx = Context {
-            app: if identify_app {
+            app: if request.identify_app {
                 app_name(hwnd)
             } else {
                 String::new()
@@ -874,20 +1003,40 @@ fn capture_context(read_text: bool, technical: bool, identify_app: bool) -> Cont
             hwnd: hwnd.0 as isize,
             ..Default::default()
         };
-        let initialized = CoInitializeEx(None, COINIT_MULTITHREADED).is_ok();
-        if let Ok(ui) =
-            CoCreateInstance::<_, IUIAutomation>(&CUIAutomation, None, CLSCTX_INPROC_SERVER)
-        {
-            if let Ok(element) = ui.GetFocusedElement() {
-                ctx.password = element
+        if hwnd.0.is_null() || GetForegroundWindow() != hwnd {
+            ctx.hwnd = 0;
+            return (ctx, None);
+        }
+        let mut retained = None;
+        if let Ok(focused) = ui.GetFocusedElement() {
+            if let Some(element) = canonical_input(ui, &focused, hwnd) {
+                ctx.password = focused
                     .CurrentIsPassword()
                     .map(|v| v.as_bool())
                     .unwrap_or(true);
+                ctx.password = element
+                    .CurrentIsPassword()
+                    .map(|v| v.as_bool())
+                    .unwrap_or(true)
+                    || ctx.password;
                 if let Ok(id) = element.GetRuntimeId() {
                     ctx.focused_runtime_id = safe_array_i32(id);
                     let _ = SafeArrayDestroy(id);
                 }
-                if read_text && !ctx.password && !ctx.focused_runtime_id.is_empty() {
+                if request.identify_app || ctx.focused_runtime_id != request.expected_id {
+                    ctx.focus_anchor = stable_anchor(ui, &element);
+                    ctx.focus_anchor.original_unavailable = original
+                        .filter(|(id, _)| *id == request.expected_id)
+                        .is_some_and(|(_, old)| {
+                            replacement_error_proves_removal(
+                                old.CurrentIsEnabled()
+                                    .err()
+                                    .map(|error| error.code().0 as u32),
+                            )
+                        });
+                }
+                retained = Some(element.clone());
+                if request.read_text && !ctx.password && !ctx.focused_runtime_id.is_empty() {
                     if GetForegroundWindow() == hwnd {
                         let mut title = [0u16; 257];
                         let length = GetWindowTextW(hwnd, &mut title);
@@ -910,7 +1059,7 @@ fn capture_context(read_text: bool, technical: bool, identify_app: bool) -> Cont
                             ctx.nearby = text
                                 .DocumentRange()
                                 .and_then(|r| {
-                                    if technical {
+                                    if request.technical {
                                         // Read the recent terminal/editor tail, not an old
                                         // shell prompt at the start of a long scrollback.
                                         let tail = r.Clone()?;
@@ -938,7 +1087,7 @@ fn capture_context(read_text: bool, technical: bool, identify_app: bool) -> Cont
                                 .CurrentValue()
                                 .map(|b| {
                                     let value = b.to_string();
-                                    if technical {
+                                    if request.technical {
                                         value
                                             .chars()
                                             .rev()
@@ -965,14 +1114,190 @@ fn capture_context(read_text: bool, technical: bool, identify_app: bool) -> Cont
             ctx.nearby.clear();
             ctx.window_title.clear();
         }
-        if initialized {
-            CoUninitialize()
-        }
-        ctx
+        (ctx, retained)
     }
 }
+
+unsafe fn canonical_input(
+    ui: &IUIAutomation,
+    focused: &IUIAutomationElement,
+    foreground: HWND,
+) -> Option<IUIAutomationElement> {
+    let walker = ui.RawViewWalker().ok()?;
+    let started = Instant::now();
+    let leaf_type = focused.CurrentControlType().ok()?;
+    // A focused text fragment can move as the caret advances. Normalize only
+    // such fragments to their nearest actual editor, never buttons/links or a
+    // second nested editor to a shared page/document container.
+    let may_normalize = [
+        UIA_TextControlTypeId,
+        UIA_GroupControlTypeId,
+        UIA_CustomControlTypeId,
+    ]
+    .contains(&leaf_type);
+    let mut found_editor = editing_host(focused, leaf_type);
+    let mut candidate =
+        (found_editor || direct_text_input(focused, leaf_type)).then(|| focused.clone());
+    let mut element = focused.clone();
+    for _ in 0..32 {
+        if started.elapsed() >= Duration::from_millis(200) {
+            return None;
+        }
+        let kind = element.CurrentControlType().ok()?;
+        if may_normalize && !found_editor && editing_host(&element, kind) {
+            candidate = Some(element.clone());
+            found_editor = true;
+        }
+        let native = element.CurrentNativeWindowHandle().ok()?;
+        if !native.0.is_null() {
+            let root = GetAncestor(native, GA_ROOT);
+            if root == foreground {
+                return candidate;
+            }
+            // A nonzero native ancestor in a different top-level window means
+            // global UIA focus and Win32 foreground are an inconsistent pair.
+            if !root.0.is_null() {
+                return None;
+            }
+        }
+        element = walker.GetParentElement(&element).ok()?;
+    }
+    None
+}
+
+unsafe fn editing_host(element: &IUIAutomationElement, kind: UIA_CONTROLTYPE_ID) -> bool {
+    kind == UIA_EditControlTypeId
+        || kind == UIA_DocumentControlTypeId
+            && element.GetCurrentPattern(UIA_TextEditPatternId).is_ok()
+        || [UIA_CustomControlTypeId, UIA_ComboBoxControlTypeId].contains(&kind)
+            && element
+                .GetCurrentPattern(UIA_ValuePatternId)
+                .and_then(|pattern| pattern.cast::<IUIAutomationValuePattern>())
+                .and_then(|value| value.CurrentIsReadOnly())
+                .is_ok_and(|read_only| !read_only.as_bool())
+}
+
+unsafe fn direct_text_input(element: &IUIAutomationElement, kind: UIA_CONTROLTYPE_ID) -> bool {
+    // Terminals and some editors expose a focused Document/TextPattern rather
+    // than Value/TextEdit. A button, link or unrelated page container cannot
+    // become an input target merely by sharing the application's window.
+    [
+        UIA_DocumentControlTypeId,
+        UIA_CustomControlTypeId,
+        UIA_TextControlTypeId,
+        UIA_PaneControlTypeId,
+    ]
+    .contains(&kind)
+        && element
+            .CurrentHasKeyboardFocus()
+            .is_ok_and(|value| value.as_bool())
+        && element
+            .CurrentIsKeyboardFocusable()
+            .is_ok_and(|value| value.as_bool())
+        && element.GetCurrentPattern(UIA_TextPatternId).is_ok()
+}
+
+unsafe fn element_runtime_id(element: &IUIAutomationElement) -> Vec<i32> {
+    let Ok(id) = element.GetRuntimeId() else {
+        return vec![];
+    };
+    let result = safe_array_i32(id);
+    let _ = SafeArrayDestroy(id);
+    result
+}
+
+unsafe fn stable_anchor(ui: &IUIAutomation, element: &IUIAutomationElement) -> FocusAnchor {
+    let mut anchor = FocusAnchor {
+        process_id: element.CurrentProcessId().unwrap_or_default(),
+        control_type: element
+            .CurrentControlType()
+            .map(|kind| kind.0)
+            .unwrap_or_default(),
+        ..Default::default()
+    };
+    if ![UIA_EditControlTypeId, UIA_DocumentControlTypeId]
+        .contains(&UIA_CONTROLTYPE_ID(anchor.control_type))
+    {
+        return anchor;
+    }
+    let Ok(id) = element.CurrentAutomationId() else {
+        return anchor;
+    };
+    let id = id.to_string();
+    if id.is_empty() || id.len() > 512 || anchor.process_id <= 0 {
+        return anchor;
+    }
+    let Ok(walker) = ui.RawViewWalker() else {
+        return anchor;
+    };
+    let Ok(parent) = walker.GetParentElement(element) else {
+        return anchor;
+    };
+    anchor.parent_runtime_id = element_runtime_id(&parent);
+    if anchor.parent_runtime_id.is_empty() {
+        return anchor;
+    }
+    // AutomationId is scoped to raw siblings. Prove uniqueness on both capture
+    // and replacement, not by a name, placeholder, screen position or ID prefix.
+    let Ok(condition) = ui.CreateTrueCondition() else {
+        return anchor;
+    };
+    let Ok(children) = parent.FindAll(TreeScope_Children, &condition) else {
+        return anchor;
+    };
+    let Ok(length) = children.Length() else {
+        return anchor;
+    };
+    if !(1..=128).contains(&length) {
+        return anchor;
+    }
+    let started = Instant::now();
+    let mut matches = 0;
+    for index in 0..length {
+        if started.elapsed() >= Duration::from_millis(150) {
+            return anchor;
+        }
+        let Ok(child) = children.GetElement(index) else {
+            return anchor;
+        };
+        let Ok(child_id) = child.CurrentAutomationId() else {
+            return anchor;
+        };
+        if child_id == id {
+            matches += 1;
+            if matches > 1 {
+                return anchor;
+            }
+        }
+    }
+    if matches == 1 {
+        anchor.automation_id = id;
+        anchor.unique_in_parent = true;
+    }
+    anchor
+}
+
+fn verified_recreated_field(target: &FocusAnchor, current: &FocusAnchor) -> bool {
+    current.original_unavailable
+        && [UIA_EditControlTypeId, UIA_DocumentControlTypeId]
+            .contains(&UIA_CONTROLTYPE_ID(target.control_type))
+        && target.unique_in_parent
+        && current.unique_in_parent
+        && target.process_id > 0
+        && target.process_id == current.process_id
+        && target.control_type == current.control_type
+        && !target.automation_id.is_empty()
+        && target.automation_id == current.automation_id
+        && !target.parent_runtime_id.is_empty()
+        && target.parent_runtime_id == current.parent_runtime_id
+}
+
+fn replacement_error_proves_removal(error: Option<u32>) -> bool {
+    error == Some(UIA_E_ELEMENTNOTAVAILABLE)
+}
+
 unsafe fn safe_array_i32(array: *mut SAFEARRAY) -> Vec<i32> {
-    if array.is_null() {
+    if array.is_null() || SafeArrayGetDim(array) != 1 {
         return vec![];
     }
     let (Ok(lo), Ok(hi)) = (SafeArrayGetLBound(array, 1), SafeArrayGetUBound(array, 1)) else {
@@ -981,9 +1306,12 @@ unsafe fn safe_array_i32(array: *mut SAFEARRAY) -> Vec<i32> {
     let mut result = vec![];
     for i in lo..=hi {
         let mut v = 0i32;
-        if SafeArrayGetElement(array, &i, (&mut v as *mut i32).cast()).is_ok() {
-            result.push(v)
+        if SafeArrayGetElement(array, &i, (&mut v as *mut i32).cast()).is_err() {
+            // A partial identity could collide with another field. Reject the
+            // complete snapshot if any element could not be read.
+            return vec![];
         }
+        result.push(v)
     }
     result
 }
@@ -1014,11 +1342,23 @@ pub fn insert(
                 // A delayed clipboard format may take time to render. Recheck
                 // modifiers and the original target before the fallback types.
                 wait_for_modifier_release(active)?;
-                type_unicode_batches(text, target, active, insertion_context, send_unicode)
+                type_unicode_batches(
+                    text,
+                    target,
+                    active,
+                    || insertion_context(target),
+                    send_unicode,
+                )
             },
         );
     }
-    type_unicode_batches(text, target, active, insertion_context, send_unicode)
+    type_unicode_batches(
+        text,
+        target,
+        active,
+        || insertion_context(target),
+        send_unicode,
+    )
 }
 
 const FOCUS_PROBE_ATTEMPTS: usize = 5;
@@ -1028,7 +1368,12 @@ pub(crate) fn validate_current_insertion_target(
     target: &Context,
     active: &dyn Fn() -> bool,
 ) -> Result<(), String> {
-    validate_target_with_retry(target, active, insertion_context, std::thread::sleep)
+    validate_target_with_retry(
+        target,
+        active,
+        || insertion_context(target),
+        std::thread::sleep,
+    )
 }
 
 fn validate_target_with_retry(
@@ -1048,16 +1393,28 @@ fn validate_target_with_retry(
         match validate_insertion_target(target, &current) {
             Ok(()) => return Ok(()),
             Err(error) => {
-                // UIA can briefly return no focused node or an intermediate
-                // node while Chromium updates accessibility. Accept only a
-                // fresh, exact match to the ORIGINAL field. Never adopt a new
-                // runtime id, force focus, or retry a password/window change.
+                // A provider can briefly expose no node or an intermediate
+                // node. Retry only inside the original foreground window;
+                // each fresh sample must independently prove the same field.
                 let can_settle = !target.password
                     && !current.password
                     && target.hwnd != 0
                     && current.hwnd == target.hwnd
                     && !target.focused_runtime_id.is_empty();
                 if !can_settle || attempt + 1 == FOCUS_PROBE_ATTEMPTS {
+                    // Fixed categories/counts only. No text, title, URL,
+                    // AutomationId or runtime identifier is written to stderr.
+                    eprintln!(
+                        "CridVoice focus: window_matches={} original_id_present={} current_id_present={} original_control={} current_control={} original_anchor_unique={} current_anchor_unique={} original_removed={}",
+                        target.hwnd == current.hwnd,
+                        !target.focused_runtime_id.is_empty(),
+                        !current.focused_runtime_id.is_empty(),
+                        target.focus_anchor.control_type,
+                        current.focus_anchor.control_type,
+                        target.focus_anchor.unique_in_parent,
+                        current.focus_anchor.unique_in_parent,
+                        current.focus_anchor.original_unavailable,
+                    );
                     return Err(error);
                 }
                 pause(FOCUS_PROBE_DELAY);
@@ -1085,7 +1442,10 @@ pub(crate) fn validate_insertion_target(target: &Context, current: &Context) -> 
             "The original text field could not be verified. Your text is available to copy.".into(),
         );
     }
-    if current.focused_runtime_id != target.focused_runtime_id {
+    if current.focused_runtime_id != target.focused_runtime_id
+        && !(!current.focused_runtime_id.is_empty()
+            && verified_recreated_field(&target.focus_anchor, &current.focus_anchor))
+    {
         return Err(if current.focused_runtime_id.is_empty() {
             "The focused text field could not be verified. Your text is available to copy."
         } else {
@@ -1206,6 +1566,103 @@ mod insertion_tests {
             focused_runtime_id: vec![1, 2, 3],
             ..Default::default()
         }
+    }
+
+    fn replaceable_target() -> Context {
+        Context {
+            focus_anchor: FocusAnchor {
+                process_id: 42,
+                control_type: UIA_EditControlTypeId.0,
+                automation_id: "synthetic-editor".into(),
+                parent_runtime_id: vec![9, 8, 7],
+                unique_in_parent: true,
+                original_unavailable: false,
+            },
+            ..target()
+        }
+    }
+
+    #[test]
+    fn recreated_editor_requires_dead_original_and_unique_identity_under_same_parent() {
+        let target = replaceable_target();
+        let mut current = target.clone();
+        current.focused_runtime_id = vec![4, 5, 6];
+        current.focus_anchor.original_unavailable = true;
+        assert!(validate_insertion_target(&target, &current).is_ok());
+
+        // Sharing an AutomationId alone must not authorize another live field.
+        current.focus_anchor.original_unavailable = false;
+        assert!(validate_insertion_target(&target, &current).is_err());
+    }
+
+    #[test]
+    fn changed_ambiguous_or_unavailable_replacement_evidence_never_authorizes_input() {
+        let target = replaceable_target();
+        for failure in 0..9 {
+            let mut current = target.clone();
+            current.focused_runtime_id = vec![4, 5, 6];
+            current.focus_anchor.original_unavailable = true;
+            match failure {
+                0 => current.focus_anchor.process_id += 1,
+                1 => current.focus_anchor.control_type = UIA_ButtonControlTypeId.0,
+                2 => current.focus_anchor.automation_id.push_str("-other"),
+                3 => current.focus_anchor.parent_runtime_id.push(0),
+                4 => current.focus_anchor.unique_in_parent = false,
+                5 => current.focus_anchor.automation_id.clear(),
+                6 => current.focus_anchor.parent_runtime_id.clear(),
+                7 => current.focused_runtime_id.clear(),
+                _ => current.focus_anchor.original_unavailable = false,
+            }
+            assert!(
+                validate_insertion_target(&target, &current).is_err(),
+                "case {failure}"
+            );
+        }
+        let mut original = target.clone();
+        original.focus_anchor.unique_in_parent = false;
+        let mut current = target.clone();
+        current.focused_runtime_id = vec![4, 5, 6];
+        current.focus_anchor.original_unavailable = true;
+        assert!(validate_insertion_target(&original, &current).is_err());
+    }
+
+    #[test]
+    fn verified_replacement_cannot_bypass_window_or_password_safety() {
+        let target = replaceable_target();
+        for failure in 0..3 {
+            let mut current = target.clone();
+            current.focused_runtime_id = vec![4, 5, 6];
+            current.focus_anchor.original_unavailable = true;
+            match failure {
+                0 => current.hwnd += 1,
+                1 => current.hwnd = 0,
+                _ => current.password = true,
+            }
+            assert!(validate_insertion_target(&target, &current).is_err());
+        }
+    }
+
+    #[test]
+    fn only_explicit_element_removed_error_proves_replacement() {
+        assert!(replacement_error_proves_removal(Some(
+            UIA_E_ELEMENTNOTAVAILABLE
+        )));
+        for error in [None, Some(0x80004005), Some(0x800705b4), Some(0x800706ba)] {
+            assert!(!replacement_error_proves_removal(error));
+        }
+    }
+
+    #[test]
+    fn native_focus_identity_is_never_serialized_into_model_context() {
+        let target = replaceable_target();
+        let json = serde_json::to_string(&target).unwrap();
+        assert!(!json.contains("synthetic-editor"));
+        assert!(!json.contains("focusAnchor"));
+        assert!(!json.contains("focusedRuntimeId"));
+        assert!(!json.contains("uniqueInParent"));
+        let restored: Context = serde_json::from_str(&json).unwrap();
+        assert!(restored.focused_runtime_id.is_empty());
+        assert!(restored.focus_anchor.automation_id.is_empty());
     }
 
     #[test]
@@ -1381,6 +1838,50 @@ mod insertion_tests {
         assert_eq!(probes.get(), 3);
         assert_eq!(captured.hwnd, target().hwnd);
         assert_eq!(captured.focused_runtime_id, target().focused_runtime_id);
+    }
+
+    #[test]
+    fn initial_capture_can_retry_a_cold_worker_without_authorizing_empty_identity() {
+        let original = target();
+        let no_reply = context_after_focus_response(None, original.hwnd, original.hwnd);
+        assert_eq!(no_reply.hwnd, original.hwnd);
+        assert!(no_reply.focused_runtime_id.is_empty());
+        assert!(validate_insertion_target(&no_reply, &original).is_err());
+        let probes = Cell::new(0);
+        let captured = capture_target_with_retry(
+            || {
+                probes.set(probes.get() + 1);
+                if probes.get() == 1 {
+                    no_reply.clone()
+                } else {
+                    original.clone()
+                }
+            },
+            |_| {},
+        );
+        assert_eq!(probes.get(), 2);
+        assert!(validate_insertion_target(&original, &captured).is_ok());
+    }
+
+    #[test]
+    fn cold_worker_metadata_never_rehabilitates_rejected_or_changed_windows() {
+        let original = target();
+        for current_window in [0, original.hwnd + 1] {
+            assert_eq!(
+                context_after_focus_response(None, original.hwnd, current_window).hwnd,
+                0
+            );
+        }
+        let probes = Cell::new(0);
+        let captured = capture_target_with_retry(
+            || {
+                probes.set(probes.get() + 1);
+                context_after_focus_response(Some(Context::default()), original.hwnd, original.hwnd)
+            },
+            |_| panic!("An actual rejected snapshot must not be retried as a valid window"),
+        );
+        assert_eq!(probes.get(), 1);
+        assert_eq!(captured.hwnd, 0);
     }
 
     #[test]
@@ -1627,3 +2128,7 @@ mod insertion_tests {
         assert_eq!(sent.get(), 1);
     }
 }
+
+#[cfg(test)]
+#[path = "native/focus_integration.rs"]
+mod focus_integration;

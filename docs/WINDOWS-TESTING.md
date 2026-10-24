@@ -84,7 +84,9 @@ Add real subtle corrections you use. An LLM prompt test is not an accuracy bench
 - [ ] Changing windows or input fields while processing prevents wrong-field insertion.
 - [ ] Password fields do not contribute context or receive dictation.
 - [ ] Disabled context omits selected/nearby text from provider requests.
-- [ ] Unicode insertion leaves clipboard data unchanged.
+- [ ] With Copy dictation to clipboard off, Unicode insertion leaves clipboard data unchanged.
+- [ ] Enable Settings > Windows & storage > Copy dictation to clipboard. A successful Text/code take inserts once and leaves its completed text ready for Ctrl + V with either insertion method. Switch to a different field during processing: insertion is blocked, but the completed text is still on the clipboard.
+- [ ] Disable the option and confirm prior clipboard restoration resumes. Cancelled takes, Test dictation, cleanup failures and code awaiting review do not replace the clipboard. Consecutive takes copy only their own completed text.
 - [ ] Default clipboard paste preserves existing text, images, rich text, and file lists; concurrent new clipboard contents are not overwritten.
 - [ ] An unpreservable clipboard format triggers Unicode typing before any clipboard write, while busy/paste/partial-input/restoration failures do not duplicate insertion.
 - [ ] Multiline dictation does not send a chat message, submit a form, or execute terminal commands automatically.

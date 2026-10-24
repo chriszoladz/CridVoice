@@ -1,4 +1,4 @@
-//! Temporary clipboard paste with owned-format backup and sequence-aware restoration.
+//! Temporary paste with owned-format backup, plus optional persistent result copy.
 use tauri::Manager;
 use windows::Win32::{
     Foundation::{GetLastError, GlobalFree, SetLastError, ERROR_SUCCESS, HANDLE, HGLOBAL, HWND},
@@ -399,7 +399,7 @@ impl Drop for Backup {
         let _ = self.restore();
     }
 }
-unsafe fn put(format: u32, data: &[u8]) -> Result<(), String> {
+unsafe fn allocate_format(format: u32, data: &[u8]) -> Result<Item, String> {
     let memory =
         GlobalAlloc(GMEM_MOVEABLE, data.len()).map_err(|_| "Clipboard allocation failed.")?;
     let pointer = GlobalLock(memory);
@@ -409,12 +409,140 @@ unsafe fn put(format: u32, data: &[u8]) -> Result<(), String> {
     }
     std::ptr::copy_nonoverlapping(data.as_ptr(), pointer.cast::<u8>(), data.len());
     let _ = GlobalUnlock(memory);
-    if SetClipboardData(format, Some(HANDLE(memory.0))).is_err() {
-        let _ = GlobalFree(Some(memory));
-        return Err("Could not set temporary clipboard text.".into());
+    Ok(Item {
+        format,
+        handle: Some(HANDLE(memory.0)),
+    })
+}
+
+unsafe fn publish_format(mut item: Item) -> Result<(), String> {
+    if SetClipboardData(item.format, item.handle).is_err() {
+        return Err("Could not set clipboard contents.".into());
     }
+    // Windows owns a successfully published handle. Unpublished handles are
+    // released by Item, including those left behind after a partial failure.
+    item.handle = None;
     Ok(())
 }
+unsafe fn put(format: u32, data: &[u8]) -> Result<(), String> {
+    publish_format(allocate_format(format, data)?)
+}
+
+const PRIVACY_FORMATS: [(&str, u32); 3] = [
+    ("CanIncludeInClipboardHistory", 0),
+    ("CanUploadToCloudClipboard", 0),
+    ("ExcludeClipboardContentFromMonitorProcessing", 1),
+];
+
+fn unicode_bytes(text: &str) -> Vec<u8> {
+    text.replace("\r\n", "\n")
+        .replace('\n', "\r\n")
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .flat_map(u16::to_le_bytes)
+        .collect()
+}
+
+fn clipboard_owner(app: &tauri::AppHandle) -> Result<HWND, String> {
+    app.get_webview_window("main")
+        .and_then(|w| w.hwnd().ok())
+        .map(|h| HWND(h.0))
+        .ok_or_else(|| "CridVoice's clipboard owner window is unavailable.".into())
+}
+
+/// A persistent copy has no focus, input dispatch or temporary-restore step.
+/// Preparing every handle precedes opening/emptying the user's clipboard.
+trait ResultClipboard {
+    type Payload;
+    type Open;
+    fn prepare(&mut self) -> Result<Vec<Self::Payload>, String>;
+    fn open(&mut self) -> Result<Self::Open, String>;
+    fn empty(&mut self) -> Result<(), String>;
+    fn publish(&mut self, payload: Self::Payload) -> Result<(), String>;
+    fn close(&mut self, opened: Self::Open) -> Result<(), String>;
+}
+
+fn copy_transaction<C: ResultClipboard>(
+    clipboard: &mut C,
+    active: &dyn Fn() -> bool,
+) -> Result<(), String> {
+    crate::controller::run_if_active(active, || ())?;
+    let prepared = clipboard.prepare()?;
+    crate::controller::run_if_active(active, || ())?;
+    let opened = clipboard.open()?;
+    let result = (|| {
+        // The caller holds the final generation/lifecycle lock. This is the
+        // destructive commit boundary; a cancelled/stale take never reaches it.
+        crate::controller::run_if_active(active, || ())?;
+        clipboard.empty()?;
+        for payload in prepared {
+            clipboard.publish(payload)?;
+        }
+        Ok(())
+    })();
+    let closed = clipboard.close(opened);
+    result.and(closed)
+}
+
+struct ResultCopy {
+    owner: HWND,
+    text: Vec<u8>,
+}
+impl ResultClipboard for ResultCopy {
+    type Payload = Item;
+    type Open = Open;
+    fn prepare(&mut self) -> Result<Vec<Item>, String> {
+        let mut prepared = Vec::with_capacity(PRIVACY_FORMATS.len() + 1);
+        for (name, value) in PRIVACY_FORMATS {
+            let id = unsafe { RegisterClipboardFormatW(&windows::core::HSTRING::from(name)) };
+            if id == 0 {
+                return Err("Windows could not prepare clipboard privacy controls. Your text is available to copy.".into());
+            }
+            prepared.push(unsafe { allocate_format(id, &value.to_le_bytes())? });
+        }
+        // Publish text last, only after every privacy flag has been accepted.
+        prepared.push(unsafe { allocate_format(13, &self.text)? });
+        Ok(prepared)
+    }
+    fn open(&mut self) -> Result<Open, String> {
+        open(self.owner)
+    }
+    fn empty(&mut self) -> Result<(), String> {
+        unsafe {
+            EmptyClipboard().map_err(|_| {
+                "Windows could not prepare the clipboard. Your text is available to copy.".into()
+            })
+        }
+    }
+    fn publish(&mut self, payload: Item) -> Result<(), String> {
+        unsafe { publish_format(payload) }.map_err(|_| "Windows could not copy your dictation. Your text is available to copy in CridVoice.".into())
+    }
+    fn close(&mut self, opened: Open) -> Result<(), String> {
+        opened.close()
+    }
+}
+
+/// Intentionally replace the clipboard with a completed result. The caller must
+/// opt in and hold the lifecycle/generation lock after temporary paste restores.
+pub fn copy_result(
+    text: &str,
+    app: &tauri::AppHandle,
+    active: &dyn Fn() -> bool,
+) -> Result<(), String> {
+    crate::controller::run_if_active(active, || ())?;
+    if text.is_empty() || text.contains('\0') {
+        return Err(
+            "Dictation could not be copied as clipboard text. Copy the result from CridVoice."
+                .into(),
+        );
+    }
+    let mut clipboard = ResultCopy {
+        owner: clipboard_owner(app)?,
+        text: unicode_bytes(text),
+    };
+    copy_transaction(&mut clipboard, active)
+}
+
 pub fn paste(
     text: &str,
     target: &crate::core::Context,
@@ -424,17 +552,8 @@ pub fn paste(
     if !active() {
         return Err("Dictation was cancelled.".into());
     }
-    let owner = app
-        .get_webview_window("main")
-        .and_then(|w| w.hwnd().ok())
-        .map(|h| HWND(h.0))
-        .ok_or("CridVoice's clipboard owner window is unavailable.")?;
-    let normalized = text.replace("\r\n", "\n").replace('\n', "\r\n");
-    let utf16: Vec<u16> = normalized
-        .encode_utf16()
-        .chain(std::iter::once(0))
-        .collect();
-    let data: Vec<u8> = utf16.iter().flat_map(|n| n.to_le_bytes()).collect();
+    let owner = clipboard_owner(app)?;
+    let data = unicode_bytes(text);
     let marker_format = unsafe {
         RegisterClipboardFormatW(&windows::core::HSTRING::from("CridVoice.TemporaryPaste"))
     };
@@ -494,17 +613,11 @@ pub fn paste(
     let setup = (|| unsafe {
         put(marker_format, &backup.clipboard.nonce)?;
         put(13, &backup.clipboard.text)?;
-        for name in ["CanIncludeInClipboardHistory", "CanUploadToCloudClipboard"] {
+        for (name, value) in PRIVACY_FORMATS {
             let id = RegisterClipboardFormatW(&windows::core::HSTRING::from(name));
             if id != 0 {
-                put(id, &0u32.to_le_bytes())?
+                put(id, &value.to_le_bytes())?
             }
-        }
-        let id = RegisterClipboardFormatW(&windows::core::HSTRING::from(
-            "ExcludeClipboardContentFromMonitorProcessing",
-        ));
-        if id != 0 {
-            put(id, &1u32.to_le_bytes())?
         }
         Ok::<(), String>(())
     })();
@@ -553,9 +666,202 @@ pub fn paste(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::Cell;
+    use std::cell::{Cell, RefCell};
     use std::collections::BTreeMap;
     use std::rc::Rc;
+
+    struct CopyPayload {
+        format: u32,
+        owned: bool,
+        released: Rc<Cell<usize>>,
+    }
+    impl Drop for CopyPayload {
+        fn drop(&mut self) {
+            if self.owned {
+                self.released.set(self.released.get() + 1);
+            }
+        }
+    }
+    struct FakeResultCopy {
+        active: Rc<Cell<bool>>,
+        events: RefCell<Vec<&'static str>>,
+        released: Rc<Cell<usize>>,
+        cancel_after: Option<&'static str>,
+        fail: Option<&'static str>,
+        published: Vec<u32>,
+    }
+    impl Default for FakeResultCopy {
+        fn default() -> Self {
+            Self {
+                active: Rc::new(Cell::new(true)),
+                events: RefCell::new(vec![]),
+                released: Rc::new(Cell::new(0)),
+                cancel_after: None,
+                fail: None,
+                published: vec![],
+            }
+        }
+    }
+    impl FakeResultCopy {
+        fn phase(&self, phase: &'static str) -> Result<(), String> {
+            self.events.borrow_mut().push(phase);
+            if self.cancel_after == Some(phase) {
+                self.active.set(false);
+            }
+            if self.fail == Some(phase) {
+                Err(format!("Fixture {phase} failed"))
+            } else {
+                Ok(())
+            }
+        }
+        fn run(&mut self) -> Result<(), String> {
+            let active = self.active.clone();
+            copy_transaction(self, &|| active.get())
+        }
+    }
+    impl ResultClipboard for FakeResultCopy {
+        type Payload = CopyPayload;
+        type Open = ();
+        fn prepare(&mut self) -> Result<Vec<CopyPayload>, String> {
+            self.events.borrow_mut().push("prepare");
+            let mut prepared = Vec::new();
+            // Three privacy formats precede the Unicode payload.
+            for format in [1, 2, 3, 13] {
+                if self.fail == Some("allocate") && prepared.len() == 2 {
+                    return Err("Fixture allocation failed".into());
+                }
+                prepared.push(CopyPayload {
+                    format,
+                    owned: true,
+                    released: self.released.clone(),
+                });
+            }
+            if self.cancel_after == Some("prepare") {
+                self.active.set(false);
+            }
+            Ok(prepared)
+        }
+        fn open(&mut self) -> Result<(), String> {
+            self.phase("open")
+        }
+        fn empty(&mut self) -> Result<(), String> {
+            self.phase("empty")
+        }
+        fn publish(&mut self, mut payload: CopyPayload) -> Result<(), String> {
+            self.phase(if payload.format == 13 {
+                "text"
+            } else {
+                "privacy"
+            })?;
+            payload.owned = false;
+            self.published.push(payload.format);
+            Ok(())
+        }
+        fn close(&mut self, _: ()) -> Result<(), String> {
+            self.phase("close")
+        }
+    }
+
+    #[test]
+    fn persistent_copy_cancellation_before_commit_keeps_the_clipboard_untouched() {
+        let mut before = FakeResultCopy::default();
+        before.active.set(false);
+        assert!(before.run().is_err());
+        assert!(before.events.borrow().is_empty());
+        for phase in ["prepare", "open"] {
+            let mut clipboard = FakeResultCopy {
+                cancel_after: Some(phase),
+                ..Default::default()
+            };
+            assert!(clipboard.run().unwrap_err().contains("cancelled"));
+            assert!(!clipboard.events.borrow().contains(&"empty"));
+            assert!(clipboard.published.is_empty());
+            assert_eq!(clipboard.released.get(), 4);
+            assert_eq!(
+                clipboard.events.borrow().contains(&"close"),
+                phase == "open"
+            );
+        }
+    }
+
+    #[test]
+    fn persistent_copy_allocates_every_payload_before_empty_and_releases_failed_preparation() {
+        let mut clipboard = FakeResultCopy {
+            fail: Some("allocate"),
+            ..Default::default()
+        };
+        assert!(clipboard.run().is_err());
+        assert_eq!(*clipboard.events.borrow(), vec!["prepare"]);
+        assert_eq!(clipboard.released.get(), 2);
+        assert!(clipboard.published.is_empty());
+    }
+
+    #[test]
+    fn persistent_copy_failure_does_not_publish_text_without_privacy_or_retry() {
+        let mut clipboard = FakeResultCopy {
+            fail: Some("privacy"),
+            ..Default::default()
+        };
+        assert!(clipboard.run().is_err());
+        assert_eq!(
+            *clipboard.events.borrow(),
+            vec!["prepare", "open", "empty", "privacy", "close"]
+        );
+        assert_eq!(clipboard.released.get(), 4);
+        assert!(clipboard.published.is_empty());
+    }
+
+    #[test]
+    fn persistent_copy_completion_leaves_unicode_text_after_privacy_without_restoration() {
+        let mut clipboard = FakeResultCopy::default();
+        clipboard.run().unwrap();
+        assert_eq!(clipboard.published, vec![1, 2, 3, 13]);
+        assert_eq!(clipboard.released.get(), 0);
+        assert_eq!(
+            *clipboard.events.borrow(),
+            vec!["prepare", "open", "empty", "privacy", "privacy", "privacy", "text", "close"]
+        );
+    }
+
+    #[test]
+    fn persistent_copy_open_empty_and_publication_failures_release_unpublished_handles() {
+        for (failure, released, closed) in [
+            ("open", 4, false),
+            ("empty", 4, true),
+            ("text", 1, true),
+            ("close", 0, true),
+        ] {
+            let mut clipboard = FakeResultCopy {
+                fail: Some(failure),
+                ..Default::default()
+            };
+            assert!(clipboard.run().is_err());
+            assert_eq!(clipboard.released.get(), released);
+            assert_eq!(clipboard.events.borrow().contains(&"close"), closed);
+            assert_eq!(clipboard.published.contains(&13), failure == "close");
+        }
+    }
+
+    #[test]
+    fn persistent_copy_unicode_encoding_preserves_newlines_and_non_ascii_text() {
+        let bytes = unicode_bytes("Łódź 🐈\nline\r\nlast");
+        let units: Vec<u16> = bytes
+            .chunks_exact(2)
+            .map(|b| u16::from_le_bytes([b[0], b[1]]))
+            .collect();
+        assert_eq!(
+            String::from_utf16(&units).unwrap(),
+            "Łódź 🐈\r\nline\r\nlast\0"
+        );
+        assert_eq!(
+            PRIVACY_FORMATS,
+            [
+                ("CanIncludeInClipboardHistory", 0),
+                ("CanUploadToCloudClipboard", 0),
+                ("ExcludeClipboardContentFromMonitorProcessing", 1)
+            ]
+        );
+    }
 
     enum Change {
         Sequence(u32),

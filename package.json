@@ -1,12 +1,12 @@
 {
   "name": "cridvoice",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "vite --host 127.0.0.1",
     "build": "node scripts/build_help.mjs && tsc -b && vite build",
-    "preview": "vite preview --host 0.0.0.0",
+    "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
     "test:ui": "playwright test",
     "tauri": "tauri",
@@ -35,6 +35,6 @@
     "prettier": "^3.9.10",
     "typescript": "~5.9.3",
     "vite": "^7.1.12",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.12"
   }
 }

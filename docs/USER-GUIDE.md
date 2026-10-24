@@ -52,6 +52,8 @@ Default insertion uses clipboard paste with restoration, supporting paragraphs w
 
 For a partial-input error, check the target field before copying the full result. CridVoice stops further input rather than retrying a possibly incomplete insertion.
 
+To keep a copy ready for manual paste, enable **Settings > Windows & storage > Copy dictation to clipboard**. Completed dictation then replaces your previous clipboard contents, even if automatic insertion is blocked. It works with clipboard paste or Unicode typing. The option is off by default; cancelled/test takes, failed-cleanup raw text and code requiring review are excluded. If an error warns that some text may already be inserted, inspect the field before pasting again.
+
 The **Test dictation** button records a test take and shows its result in CridVoice. It does not insert into an unrelated application. Use global shortcuts for cross-application insertion. The tray **Toggle dictation** command also records into the current target.
 
 **Ctrl + Shift + Space** starts recording with one press and finishes with the next. **Escape** cancels. The recording-length limit automatically ends a recording; the default is five minutes. Longer sessions can be selected in Settings.
@@ -133,13 +135,15 @@ Ordinary Text and literal code dictation use only the new spoken take as source 
 
 ## Writing styles
 
-Choose Natural, Professional, Casual, Concise, or Code & technical as the default for **Text** output. Natural preserves your voice while cleaning punctuation, corrections, and filler. Code & technical preserves identifiers in prose. Add app-specific rules using an executable-name substring such as `outlook`, `slack`, or `code`. Rules are matched case-insensitively; the first matching rule wins. Optional custom guidance accompanies that rule. Rules require cleanup to be enabled.
+Choose Natural, Professional, Casual, Concise, or Technical as the default for **Text** output. Style controls tone: Natural keeps your voice, Professional uses polished phrasing, Casual is conversational, Concise shortens wording while keeping each point, and Technical preserves identifiers in prose. Add app-specific rules using an executable-name substring such as `outlook`, `slack`, or `code`. Rules are matched case-insensitively; the first matching rule wins. Optional custom guidance accompanies that rule. Rules require cleanup to be enabled.
+
+The separate **Rewrite strength** setting controls how much Text wording can change. Light makes grammar/punctuation edits close to your wording. Balanced smooths unclear sentences. Thorough can regroup a longer brain dump into a coherent message. Rephrasing is permitted; inventing details, reversing a negation or changing uncertainty is not. Strength applies across Text styles and application rules; it does not change code/CLI formatting or the speech model. Existing settings default to Balanced. AI editing can still make mistakes, so important details should be reviewed.
 
 The Application selector groups common apps, recent History app names, and running visible-window process names. Refresh updates the running list; protected processes can be absent. Choose the custom option for an unlisted executable stem or substring. Existing rules can be edited without removing/recreating them. The running list uses names only, not window titles, document text, paths, or command lines.
 
-The **You say** / **CridVoice writes** example updates with the selected writing style. These are local illustrations of each style's guidance using the same corrected meeting request, preserving its timing, identifiers, and negation. They make no provider or model requests; exact AI wording may vary. Cleanup Off and code/generation modes show explicit notices because writing styles apply to Text cleanup.
+The **You say** / **CridVoice writes** example updates with both style and rewrite strength. These local illustrations show different wording and structure while retaining the example's facts, uncertainty and requests. They make no provider or model requests; exact AI wording may vary. Cleanup Off and code/generation modes show explicit notices because writing styles apply to Text cleanup.
 
-The existing Code & technical writing style is a text-cleanup preset. Use the dedicated **Output mode** controls for literal code dictation or generation from instructions.
+The Technical writing style is a text-cleanup preset, stored under the existing `code` style ID for compatibility. Use the dedicated **Output mode** controls for literal code dictation or generation from instructions.
 
 ## History
 

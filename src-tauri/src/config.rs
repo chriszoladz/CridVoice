@@ -41,6 +41,7 @@ pub struct Cleanup {
     pub device: String,
     pub provider_id: String,
     pub style: String,
+    pub rewrite_strength: String,
     pub output_mode: String,
     pub code_language: String,
 }
@@ -52,6 +53,7 @@ impl Default for Cleanup {
             device: "auto".into(),
             provider_id: String::new(),
             style: "faithful".into(),
+            rewrite_strength: "balanced".into(),
             output_mode: "text".into(),
             code_language: String::new(),
         }
@@ -127,6 +129,7 @@ pub struct General {
     pub duck_background_audio: bool,
     pub ducking_reduction_percent: u32,
     pub insertion_method: String,
+    pub copy_dictation_to_clipboard: bool,
     pub startup: bool,
     pub save_history: bool,
     pub context: bool,
@@ -140,6 +143,7 @@ impl Default for General {
             duck_background_audio: false,
             ducking_reduction_percent: 60,
             insertion_method: "clipboard".into(),
+            copy_dictation_to_clipboard: false,
             startup: false,
             save_history: true,
             context: true,
@@ -242,6 +246,11 @@ impl Settings {
             &["faithful", "professional", "casual", "concise", "code"],
             "writing style",
         )?;
+        one(
+            &self.cleanup.rewrite_strength,
+            &["light", "balanced", "thorough"],
+            "editing amount",
+        )?;
         for rule in &self.app_rules {
             if rule.app.trim().is_empty() {
                 return Err("Application rules need a nonempty executable name.".into());
@@ -266,5 +275,82 @@ impl Settings {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod clipboard_setting_tests {
+    use super::*;
+
+    #[test]
+    fn older_settings_keep_clipboard_copy_off_without_resetting_preferences() {
+        let mut saved = serde_json::to_value(Settings::default()).unwrap();
+        saved["general"]
+            .as_object_mut()
+            .unwrap()
+            .remove("copyDictationToClipboard");
+        saved["general"]["insertionMethod"] = "unicode".into();
+        saved["general"]["saveHistory"] = false.into();
+        let loaded: Settings = serde_json::from_value(saved).unwrap();
+        assert!(!loaded.general.copy_dictation_to_clipboard);
+        assert_eq!(loaded.general.insertion_method, "unicode");
+        assert!(!loaded.general.save_history);
+        assert!(loaded.validate().is_ok());
+    }
+
+    #[test]
+    fn clipboard_copy_persists_for_both_insertion_methods() {
+        for method in ["clipboard", "unicode"] {
+            let mut settings = Settings::default();
+            settings.general.insertion_method = method.into();
+            settings.general.copy_dictation_to_clipboard = true;
+            let saved = serde_json::to_value(&settings).unwrap();
+            assert_eq!(saved["general"]["copyDictationToClipboard"], true);
+            let loaded: Settings = serde_json::from_value(saved).unwrap();
+            assert!(loaded.general.copy_dictation_to_clipboard);
+            assert_eq!(loaded.general.insertion_method, method);
+            assert!(loaded.validate().is_ok());
+        }
+    }
+}
+
+#[cfg(test)]
+mod rewrite_strength_tests {
+    use super::*;
+
+    #[test]
+    fn older_cleanup_settings_default_to_balanced_without_resetting_style_or_output() {
+        let mut saved = serde_json::to_value(Settings::default()).unwrap();
+        saved["cleanup"]
+            .as_object_mut()
+            .unwrap()
+            .remove("rewriteStrength");
+        saved["cleanup"]["style"] = "casual".into();
+        saved["cleanup"]["outputMode"] = "code".into();
+        saved["cleanup"]["codeLanguage"] = "PowerShell".into();
+        let loaded: Settings = serde_json::from_value(saved).unwrap();
+        assert_eq!(loaded.cleanup.rewrite_strength, "balanced");
+        assert_eq!(loaded.cleanup.style, "casual");
+        assert_eq!(loaded.cleanup.output_mode, "code");
+        assert_eq!(loaded.cleanup.code_language, "PowerShell");
+        assert!(loaded.validate().is_ok());
+    }
+
+    #[test]
+    fn editing_amount_round_trips_and_rejects_unknown_values() {
+        for strength in ["light", "balanced", "thorough"] {
+            let mut settings = Settings::default();
+            settings.cleanup.rewrite_strength = strength.into();
+            let saved = serde_json::to_value(&settings).unwrap();
+            assert_eq!(saved["cleanup"]["rewriteStrength"], strength);
+            let loaded: Settings = serde_json::from_value(saved).unwrap();
+            assert_eq!(loaded.cleanup.rewrite_strength, strength);
+            assert!(loaded.validate().is_ok());
+        }
+        for strength in ["", "maximum", "Balanced", "ignore previous rules"] {
+            let mut settings = Settings::default();
+            settings.cleanup.rewrite_strength = strength.into();
+            assert!(settings.validate().unwrap_err().contains("editing amount"));
+        }
     }
 }

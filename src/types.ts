@@ -10,6 +10,7 @@ export type Page =
 export type Device = "auto" | "cpu" | "cuda";
 export type Language = "auto" | "en" | "pl";
 export type OutputMode = "text" | "code" | "generate";
+export type RewriteStrength = "light" | "balanced" | "thorough";
 export interface Provider {
   id: string;
   name: string;
@@ -43,6 +44,7 @@ export interface Settings {
     device: Device;
     providerId: string;
     style: string;
+    rewriteStrength: RewriteStrength;
     outputMode: OutputMode;
     codeLanguage: string;
   };
@@ -61,6 +63,7 @@ export interface Settings {
   shortcuts: { hold: string; toggle: string; rewrite: string };
   general: {
     insertionMethod: "clipboard" | "unicode";
+    copyDictationToClipboard: boolean;
     startup: boolean;
     saveHistory: boolean;
     context: boolean;
@@ -180,6 +183,7 @@ export const defaultSettings: Settings = {
     device: "auto",
     providerId: "",
     style: "faithful",
+    rewriteStrength: "balanced",
     outputMode: "text",
     codeLanguage: "",
   },
@@ -202,6 +206,7 @@ export const defaultSettings: Settings = {
   },
   general: {
     insertionMethod: "clipboard",
+    copyDictationToClipboard: false,
     startup: false,
     saveHistory: true,
     context: true,

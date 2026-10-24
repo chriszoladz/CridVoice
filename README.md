@@ -78,9 +78,11 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib
 
 ## Release status
 
-CridVoice 0.1.17 keeps the 0.1.16 insertion improvements and adds an adjustable background-audio reduction slider, from 10% to 90%, with a 60% default. The optional switch remains off by default, restores playback when recording ends, and requires no downloads. Settings no longer dims/flashes its controls on each ordinary save.
+CridVoice 0.1.18 updates Windows focus tracking for browser/editor accessibility changes, adds an optional completed-dictation clipboard copy in Settings > Windows & storage, and improves Text cleanup instructions for grammar and multi-topic thoughts. The clipboard option is off by default and intentionally replaces previous clipboard contents when enabled. Code awaiting review keeps its explicit Copy flow.
 
-History avoids rebuilding unchanged rows during live audio updates, and integer-format microphones avoid an intermediate conversion buffer per callback. The final model, decoder, clipboard ownership, password exclusion and current-take isolation are preserved. The user confirmed repeated 0.1.16 dictation inserted correctly in the affected chat field. Matching external 0.1.17 verification records executed checks, build/install results and scoped human acceptance. Earlier results below retain their original versions.
+The release also patches affected HTTPS certificate-trust and development test dependencies, bounds AI response sizes, and limits development servers to loopback. See the [dated security review](docs/SECURITY-REVIEW-2026-10-24.md) for findings, sources and scope. Automated, installed and actual target-app results belong to the matching external release verification; native unit tests alone do not establish successful Chrome/chat insertion.
+
+The 0.1.17 background-audio slider and Settings flicker fix remain available, along with the existing history/audio performance improvements. Its accepted behavior is historical evidence; the user subsequently reported intermittent focus-related insertion failures, motivating 0.1.18. Earlier results below retain their original versions.
 
 ### Historical 0.1.15 settings polish
 
