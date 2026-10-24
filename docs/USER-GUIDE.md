@@ -151,6 +151,8 @@ The **You say** / **CridVoice writes** example updates with both style and rewri
 
 The Technical writing style is a text-cleanup preset, stored under the existing `code` style ID for compatibility. Use the dedicated **Output mode** controls for literal code dictation or generation from instructions.
 
+Multiline output sent to a recognized terminal opens in CridVoice for review and copying, including Text output. It is not inserted or automatically copied by the completed-dictation clipboard option. A single-line terminal result and multiline output in ordinary text editors keep their normal insertion behavior.
+
 ## History
 
 Final and raw transcript text are saved automatically by default. Audio is not saved as history. Search finds text or application names; the language filter selects English or Polish. Open an entry to compare original recognition with cleanup. Copy, delete, export filtered history as JSON, or clear all history. Retention can be indefinite, 7, 30, or 90 days. Turn recording of future history off in Settings without deleting existing entries.

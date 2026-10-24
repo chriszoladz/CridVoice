@@ -1719,7 +1719,7 @@ export function SettingsPanel({
           </Field>
           <Toggle
             label="Copy dictation to clipboard"
-            description="Keep completed shortcut dictation ready for Ctrl + V, even if automatic insertion fails. Replaces your previous clipboard contents. Works with either insertion method. Test recordings, cancelled takes and code awaiting review are excluded."
+            description="Keep completed shortcut dictation ready for Ctrl + V, even if automatic insertion fails. Replaces your previous clipboard contents. Works with either insertion method. Test recordings, cancelled takes and output awaiting review are excluded."
             checked={s.general.copyDictationToClipboard}
             onChange={(v) =>
               change((current) => ({

@@ -53,6 +53,53 @@ const originalScroll = Object.getOwnPropertyDescriptor(
   "scrollIntoView",
 );
 
+it("shows the review notice and Copy action for multiline terminal prose", async () => {
+  vi.stubGlobal("matchMedia", () => ({
+    matches: false,
+    addEventListener() {},
+    removeEventListener() {},
+  }));
+  const settings = structuredClone(defaultSettings);
+  settings.setupComplete = true;
+  const result = "First paragraph.\n\nSecond paragraph.";
+  bridge.getSnapshot.mockResolvedValue({
+    settings,
+    history: [],
+    models: [],
+    version: "fixture",
+    portable: true,
+    dataDir: "fixture",
+    hardware: {
+      cpu: "Fixture",
+      ramGb: 16,
+      threads: 4,
+      cudaAvailable: false,
+      gpus: [],
+    },
+    session: {
+      status: "idle",
+      level: 0,
+      preview: "",
+      result,
+      outputMode: "text",
+      reviewRequired: true,
+    },
+  });
+  bridge.events.mockResolvedValue(() => {});
+  render(<App />);
+  expect(await screen.findByText("Latest transcript")).toBeVisible();
+  expect(
+    screen.getByText(
+      "Multiline terminal output opens here for review and copying.",
+    ),
+  ).toBeVisible();
+  expect(screen.getByRole("button", { name: "Copy" })).toBeEnabled();
+  expect(
+    screen.queryByLabelText("Code or command output"),
+  ).not.toBeInTheDocument();
+  expect(bridge.command).not.toHaveBeenCalled();
+});
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -153,9 +200,7 @@ it("only marks the latest failed save and clears that status after recovery", as
       }),
   );
   render(<App />);
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Vocabulary" }),
-  );
+  fireEvent.click(await screen.findByRole("button", { name: "Vocabulary" }));
   const change = screen.getByRole("button", { name: "Change settings" });
   fireEvent.click(change);
   await waitFor(() => expect(pending).toHaveLength(1));

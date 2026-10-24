@@ -5,6 +5,7 @@
 - Add optional personal writing preferences with a draft, explicit save and defaults control, applying across Text styles and rewrite strengths. Application guidance can refine the general preferences.
 - Preserve intentional slang, nicknames and forms of address by default, including in Balanced and Thorough. Personal guidance cannot override facts, uncertainty or intended meaning, and remains separate from code/CLI modes.
 - Keep examples explicitly illustrative rather than claiming they reflect arbitrary custom instructions. Document preference storage, routing and limits.
+- Apply multiline terminal review to Text as well as code, keeping formatted prose out of automatic terminal pastes. Show the review notice for either mode.
 
 ## 0.1.19
 

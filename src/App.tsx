@@ -1158,16 +1158,16 @@ export default function App() {
                       >
                         {session.result}
                       </pre>
-                      {session.reviewRequired && (
-                        <p className="result-review-hint">
-                          {session.outputMode === "generate"
-                            ? "Generated output opens here for review and copying."
-                            : "Multiline terminal output opens here for review and copying."}
-                        </p>
-                      )}
                     </>
                   ) : (
                     <p>{session.result}</p>
+                  )}
+                  {session.reviewRequired && (
+                    <p className="result-review-hint">
+                      {session.outputMode === "generate"
+                        ? "Generated output opens here for review and copying."
+                        : "Multiline terminal output opens here for review and copying."}
+                    </p>
                   )}
                 </div>
               )}

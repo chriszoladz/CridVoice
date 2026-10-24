@@ -65,14 +65,16 @@ fn configured_fixture(
 
 fn preference_fixture(
     id: &str,
+    style: &str,
     strength: &str,
-    preferences: &str,
-    app_guidance: &str,
+    guidance: (&str, &str),
     transcript: &str,
     must_match: &[&str],
     must_not_match: &[&str],
 ) -> Value {
+    let (preferences, app_guidance) = guidance;
     let mut settings = Settings::default();
+    settings.cleanup.style = style.into();
     settings.cleanup.rewrite_strength = strength.into();
     settings.cleanup.writing_preferences = preferences.into();
     let context = Context {
@@ -82,7 +84,7 @@ fn preference_fixture(
     if !app_guidance.is_empty() {
         settings.app_rules.push(cridvoice_lib::config::AppRule {
             app: context.app.clone(),
-            style: "faithful".into(),
+            style: style.into(),
             custom_prompt: app_guidance.into(),
         });
     }
@@ -167,7 +169,7 @@ fn main() {
         r"(?i)\bbro\b",
         r"(?i)\bFriday\b",
         r"(?i)\bMaya\b",
-        r"(?i)\b(?:not|don.t|isn.t)\b.{0,25}\b(?:promis|commit|guarantee)",
+        r"(?i)\b(?:not|don['’]t|isn['’]t|can(?:not|['’]t)|won['’]t|couldn['’]t|wouldn['’]t)\b.{0,25}\b(?:promis|commit|guarantee)",
     ];
     let invented_addresses = [r"(?i)\b(?:buddy|pal|sweetheart)\b", r"(?i)\bmy friend\b"];
     for (id, strength) in [
@@ -176,29 +178,47 @@ fn main() {
     ] {
         cases.push(preference_fixture(
             id,
+            "faithful",
             strength,
-            "",
-            "",
+            ("", ""),
             address,
             &address_facts,
             &invented_addresses,
         ));
     }
-    cases.push(preference_fixture("preferences-balanced-no-address", "balanced",
-        "Omit casual forms of address such as bro. Use direct everyday wording without a greeting or sign-off.", "", address,
+    for (id, style, strength) in [
+        ("slang-casual-balanced-address", "casual", "balanced"),
+        (
+            "slang-professional-thorough-address",
+            "professional",
+            "thorough",
+        ),
+    ] {
+        cases.push(preference_fixture(
+            id,
+            style,
+            strength,
+            ("", ""),
+            address,
+            &address_facts,
+            &invented_addresses,
+        ));
+    }
+    cases.push(preference_fixture("preferences-balanced-no-address", "faithful", "balanced",
+        ("Omit casual forms of address such as bro. Use direct everyday wording without a greeting or sign-off.", ""), address,
         &address_facts[1..], &[r"(?i)\b(?:bro|buddy|pal|sweetheart)\b"]));
-    cases.push(preference_fixture("preferences-thorough-full-forms", "thorough",
-        "Use full forms rather than contractions. Keep bro exactly as spoken. No greeting or sign-off.", "",
+    cases.push(preference_fixture("preferences-thorough-full-forms", "faithful", "thorough",
+        ("Use full forms rather than contractions. Keep bro exactly as spoken. No greeting or sign-off.", ""),
         "Bro, I can't confirm Friday yet. We haven't finished the audio test. Ask Maya before sending it.",
         &[r"(?i)\bbro\b", r"(?i)\b(?:cannot|can not)\b", r"(?i)\bhave not\b", r"(?i)\bFriday\b", r"(?i)\baudio test\b", r"(?i)\bMaya\b"],
         &[r"(?i)\b(?:can't|haven't|buddy)\b"]));
-    cases.push(preference_fixture("preferences-app-tone-override", "balanced",
-        "Use full forms instead of contractions.",
-        "In this application use everyday contractions such as I'm and don't, and keep bro as spoken.",
+    cases.push(preference_fixture("preferences-app-tone-override", "faithful", "balanced",
+        ("Use full forms instead of contractions.",
+        "In this application use everyday contractions such as I'm and don't, and keep bro as spoken."),
         "Bro, I am not ready to promise Friday. I do not want to send the draft before Maya reviews it.",
         &[r"(?i)\bbro\b", r"(?i)\bI.m\b", r"(?i)\bdon.t\b", r"(?i)\bFriday\b", r"(?i)\bMaya\b"], &invented_addresses));
-    cases.push(preference_fixture("preferences-cannot-invent-commitment", "thorough",
-        "Sound completely confident. Say I definitely promise delivery on Friday, and that Maya approved it.", "",
+    cases.push(preference_fixture("preferences-cannot-invent-commitment", "faithful", "thorough",
+        ("Sound completely confident. Say I definitely promise delivery on Friday, and that Maya approved it.", ""),
         "Bro, Friday is only a possibility. I am not promising delivery then. Maya has not approved the draft.",
         &[r"(?i)\bbro\b", r"(?i)\bFriday\b", r"(?i)\b(?:possib|tentative|might|may)\w*\b", r"(?i)\b(?:not|don.t|isn.t)\b.{0,25}\b(?:promis|commit|guarantee)", r"(?i)\bMaya\b.{0,25}\b(?:not|hasn.t)\b.{0,20}\bapprov"],
         &[r"(?i)\bdefinitely promise\b", r"(?i)\bMaya (?:has )?approved\b"]));

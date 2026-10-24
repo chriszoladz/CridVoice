@@ -410,8 +410,7 @@ pub fn implicit_rewrite(settings: &Settings, context: &Context, raw: &str, expli
 
 pub fn review_required(settings: &Settings, context: &Context, output: &str) -> bool {
     settings.cleanup.output_mode == "generate"
-        || (settings.cleanup.output_mode == "code"
-            && output.contains(['\n', '\r'])
+        || (output.contains(['\n', '\r'])
             && (terminal_process(&context.app)
                 || context_allowed(settings, context)
                     && prompt_language(&context.nearby).is_some()))
@@ -1093,7 +1092,7 @@ mod tests {
     }
 
     #[test]
-    fn generation_never_inserts_and_terminal_multiline_requires_review() {
+    fn generation_always_requires_review_and_never_automatically_inserts() {
         let terminal = Context {
             app: "WindowsTerminal".into(),
             ..Default::default()
@@ -1103,54 +1102,113 @@ mod tests {
             window_title: "sample.ps1 - Visual Studio Code".into(),
             ..Default::default()
         };
+        for context in [&terminal, &editor] {
+            for output in ["print(1)", "first\nsecond", "first\rsecond"] {
+                assert!(review_required(&settings("generate"), context, output));
+                for requested in [true, false] {
+                    assert!(!automatic_insertion(
+                        &settings("generate"),
+                        context,
+                        requested,
+                        output
+                    ));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn text_and_code_multiline_terminal_output_require_review_for_both_insertion_methods() {
+        let editor = Context {
+            app: "code".into(),
+            window_title: "sample.ps1 - Visual Studio Code".into(),
+            ..Default::default()
+        };
         let integrated = Context {
             nearby: "PS C:\\fixture> ".into(),
             ..editor.clone()
         };
-        for requested in [true, false] {
+        for mode in ["text", "code"] {
+            for method in ["clipboard", "unicode"] {
+                let mut settings = settings(mode);
+                settings.general.insertion_method = method.into();
+                for app in ["WindowsTerminal", "cmd.exe", "pwsh", "bash", "wezterm-gui"] {
+                    let terminal = Context {
+                        app: app.into(),
+                        ..Default::default()
+                    };
+                    for output in [
+                        "first\nsecond",
+                        "first\r\nsecond",
+                        "first\rsecond",
+                        "git status\n",
+                    ] {
+                        for context in [&terminal, &integrated] {
+                            assert!(
+                                review_required(&settings, context, output),
+                                "{mode}/{method}/{app}"
+                            );
+                            assert!(!automatic_insertion(&settings, context, true, output));
+                        }
+                        assert!(!review_required(&settings, &editor, output));
+                        assert!(automatic_insertion(&settings, &editor, true, output));
+                    }
+                    assert!(!review_required(&settings, &terminal, "git status"));
+                    assert!(automatic_insertion(
+                        &settings,
+                        &terminal,
+                        true,
+                        "git status"
+                    ));
+                    assert!(!automatic_insertion(
+                        &settings,
+                        &terminal,
+                        false,
+                        "git status"
+                    ));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn terminal_process_review_still_works_when_app_text_context_is_disabled() {
+        for mode in ["text", "code"] {
+            let mut settings = settings(mode);
+            settings.general.context = false;
+            let terminal = Context {
+                app: "WindowsTerminal.exe".into(),
+                ..Default::default()
+            };
+            let editor = Context {
+                app: "code".into(),
+                nearby: "PS C:\\fixture> ".into(),
+                ..Default::default()
+            };
+            assert!(review_required(&settings, &terminal, "first\nsecond"));
             assert!(!automatic_insertion(
-                &settings("generate"),
+                &settings,
+                &terminal,
+                true,
+                "first\nsecond"
+            ));
+            assert!(
+                !review_required(&settings, &editor, "first\nsecond"),
+                "Disabled editable context must not be inspected."
+            );
+            assert!(automatic_insertion(
+                &settings,
                 &editor,
-                requested,
-                "print(1)"
+                true,
+                "first\nsecond"
+            ));
+            assert!(automatic_insertion(
+                &settings,
+                &terminal,
+                true,
+                "git status"
             ));
         }
-        assert!(!automatic_insertion(
-            &settings("code"),
-            &terminal,
-            true,
-            "first\nsecond"
-        ));
-        assert!(!automatic_insertion(
-            &settings("code"),
-            &integrated,
-            true,
-            "first\r\nsecond"
-        ));
-        assert!(automatic_insertion(
-            &settings("code"),
-            &terminal,
-            true,
-            "git status"
-        ));
-        assert!(automatic_insertion(
-            &settings("code"),
-            &editor,
-            true,
-            "first\nsecond"
-        ));
-        assert!(automatic_insertion(
-            &settings("text"),
-            &terminal,
-            true,
-            "first\nsecond"
-        ));
-        assert!(!automatic_insertion(
-            &settings("code"),
-            &editor,
-            false,
-            "first"
-        ));
     }
 
     #[test]
