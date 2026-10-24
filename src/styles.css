@@ -2703,6 +2703,40 @@ progress::-webkit-progress-value {
 .application-style-editor {
   min-width: 0;
 }
+.audio-reduction {
+  max-width: 520px;
+  margin-top: 14px;
+}
+.audio-reduction-label,
+.audio-reduction-scale {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.audio-reduction-label label {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.audio-reduction-label output {
+  color: var(--text);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.audio-reduction input[type="range"] {
+  min-height: 30px;
+  margin: 8px 0 0;
+  cursor: pointer;
+}
+.audio-reduction input:disabled {
+  cursor: default;
+}
+.audio-reduction-scale {
+  color: var(--faint);
+  font-size: 0.75rem;
+  margin-bottom: 10px;
+}
 @media (max-width: 700px) {
   .shortcut-setting > div {
     align-items: flex-start;

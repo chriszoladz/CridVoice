@@ -66,6 +66,7 @@ export interface Settings {
     context: boolean;
     microphone: string;
     duckBackgroundAudio: boolean;
+    duckingReductionPercent: number;
     maxRecordingSeconds: number;
     historyDays: number;
   };
@@ -206,6 +207,7 @@ export const defaultSettings: Settings = {
     context: true,
     microphone: "",
     duckBackgroundAudio: false,
+    duckingReductionPercent: 60,
     maxRecordingSeconds: 300,
     historyDays: 0,
   },

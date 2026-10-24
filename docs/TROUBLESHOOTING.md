@@ -10,7 +10,7 @@ The message distinguishes a changed window, a different field and a field Window
 
 ## Lower background audio
 
-**Settings → Speech recognition → Lower background audio while speaking** is off by default. It reduces other apps' per-session playback volumes by 25% on currently active output devices and restores them after stop/cancel, recording errors, or normal exit. It leaves the system volume, mute state, microphone and system-sound session alone. Manual session-volume adjustments during a take are retained.
+**Settings → Speech recognition → Lower background audio while speaking** is off by default. **Background audio reduction** controls the reduction from 10% to 90%; the new default is 60%. If 0.1.16's fixed 25% sounded too subtle, raise the slider and start a new recording. It affects supported per-session playback on currently active outputs and restores volumes after stop/cancel, recording errors, or normal exit. It leaves system volume, mute state, microphone and system sounds alone. Observed manual session-volume adjustments during a take are retained.
 
 Windows audio support varies: exclusive-mode playback and devices connected after recording starts may not expose an adjustable session. An abrupt process termination or power loss cannot run normal restoration; use Windows Volume mixer if needed. This is playback reduction, not microphone noise removal. It adds no model or download.
 

@@ -44,7 +44,8 @@ table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:13px}th,t
 <p>With local speech and live preview enabled, setup/repair includes Whisper Tiny, a separate CPU preview model of about 75 MiB. Its first request becomes due at about 750 milliseconds, then at minimum 300-millisecond intervals when free. Recognition still arrives in provisional chunks, so it can revise words rather than displaying every spoken word instantly. Only the latest six seconds are previewed; older words can leave the preview. Your selected final speech model independently recognizes the complete take after release, with its normal settings, then cleanup runs. Remote preview keeps its existing provider and cadence.</p>
 <p>The popup&#39;s fixed two-line area follows the newest words. Overview follows updates while you are near the bottom; scrolling back keeps your reading position until you return near the bottom. The full current preview remains accessible without a live announcement for every partial word. A preview-only failure can show <strong>Preview unavailable. Release to transcribe.</strong> while final recognition remains available. You can turn live preview off in Appearance without changing the selected final speech model.</p>
 <h2>Lower background audio</h2>
-<p>In <strong>Settings → Speech recognition</strong>, turn on <strong>Lower background audio while speaking</strong> to reduce other apps&#39; playback by 25% during recording. It is off by default. The volume returns when you stop or cancel, before final recognition and cleanup. Volume changes you make while recording are kept.</p>
+<p>In <strong>Settings → Speech recognition</strong>, turn on <strong>Lower background audio while speaking</strong>, then adjust <strong>Background audio reduction</strong> from 10% to 90%. Higher values make other apps quieter. The default 60% reduction leaves playback at 40% of its original session volume. The switch is off by default; the slider remembers its amount when switched off.</p>
+<p>The displayed amount follows the slider immediately. Release the slider, finish a keyboard adjustment, or leave it to save the amount. It applies to the next recording. The volume returns when you stop or cancel, before final recognition and cleanup. Observed manual volume changes during recording are kept. Settings stays visually stable while ordinary saves complete in the background.</p>
 <p>This lowers computer playback such as music or a video. It does not remove room noise from the microphone recording. See Troubleshooting for supported playback devices and restoration behavior.</p>
 <h2>Speaking naturally</h2>
 <p>Cleanup resolves corrections such as:</p>
@@ -468,7 +469,12 @@ table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:13px}th,t
 <tr>
 <td><code>general.duckBackgroundAudio</code></td>
 <td><code>false</code></td>
-<td>Temporarily reduce other apps&#39; playback by 25% while recording; restore afterward without overwriting manual volume changes</td>
+<td>Temporarily reduce supported other apps&#39; playback while recording; restore afterward while retaining observed manual volume changes</td>
+</tr>
+<tr>
+<td><code>general.duckingReductionPercent</code></td>
+<td><code>60</code></td>
+<td>Playback reduction from 10 to 90 percent; 60 leaves 40% of the original session volume</td>
 </tr>
 <tr>
 <td><code>general.maxRecordingSeconds</code></td>
@@ -561,6 +567,10 @@ table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:13px}th,t
 <tr>
 <td><code>src/ShortcutRecorder.tsx</code></td>
 <td>Temporary chord capture, conflict feedback, and deliberate save/reset</td>
+</tr>
+<tr>
+<td><code>src/BackgroundAudioControl.tsx</code></td>
+<td>Optional playback reduction, local slider draft and deliberate percentage commits</td>
 </tr>
 <tr>
 <td><code>src/ApplicationStyleEditor.tsx</code></td>
@@ -1058,7 +1068,7 @@ python scripts/package_portable.py
 <p>CridVoice 0.1.16 rechecks a transient missing/different accessibility node for up to five samples, spaced 20 ms apart, accepting only the original window and field. Stable focus adds no wait. A real window change or password field stops immediately. It never forces another window into focus or replays input after a partial paste/type.</p>
 <p>The message distinguishes a changed window, a different field and a field Windows could not identify. Keep the original field focused until insertion completes. If an app does not expose a verifiable input field through Windows accessibility, Copy remains available. For administrator apps, CridVoice needs compatible elevation; running normal applications normally is preferable.</p>
 <h2>Lower background audio</h2>
-<p><strong>Settings → Speech recognition → Lower background audio while speaking</strong> is off by default. It reduces other apps&#39; per-session playback volumes by 25% on currently active output devices and restores them after stop/cancel, recording errors, or normal exit. It leaves the system volume, mute state, microphone and system-sound session alone. Manual session-volume adjustments during a take are retained.</p>
+<p><strong>Settings → Speech recognition → Lower background audio while speaking</strong> is off by default. <strong>Background audio reduction</strong> controls the reduction from 10% to 90%; the new default is 60%. If 0.1.16&#39;s fixed 25% sounded too subtle, raise the slider and start a new recording. It affects supported per-session playback on currently active outputs and restores volumes after stop/cancel, recording errors, or normal exit. It leaves system volume, mute state, microphone and system sounds alone. Observed manual session-volume adjustments during a take are retained.</p>
 <p>Windows audio support varies: exclusive-mode playback and devices connected after recording starts may not expose an adjustable session. An abrupt process termination or power loss cannot run normal restoration; use Windows Volume mixer if needed. This is playback reduction, not microphone noise removal. It adds no model or download.</p>
 <h2>Navigation labels are hidden</h2>
 <p>Choose <strong>Expand sidebar</strong> to restore page labels. Collapsed navigation keeps its icons: hover or keyboard-focus an icon to see its name, or use <strong>Ctrl + K</strong> to find a page. The collapse preference is remembered without changing your processing settings.</p>
@@ -1128,7 +1138,11 @@ python scripts/package_portable.py
 <p>Tekst transkrypcji jest zapisywany lokalnie w History. Nagrania audio nie są przechowywane jako historia. Appearance zawiera osiem motywów, tryb jasny/ciemny/systemowy oraz przełączniki fali dźwiękowej, podglądu tekstu i paska nagrywania.</p>
 <p>Nie zmieniaj aktywnego pola przed zakończeniem przetwarzania. Jeśli fokus się zmieni, wynik zostanie zapisany zamiast wpisany do innego pola. Dokładność i rozumienie poprawek zależą od wybranych modeli. Przetestuj aplikację na swoim Windows 11 zgodnie z <a href="#WINDOWS-TESTING">listą testów</a>.</p>
 </article><article id="VALIDATION"><h1>Validation report</h1>
-<h2>Current 0.1.16 insertion, background audio and performance</h2>
+<h2>Current 0.1.17 adjustable playback reduction</h2>
+<p>The user confirmed repeated 0.1.16 takes inserted correctly in the previously affected chat field, then reported that its fixed 25% playback reduction was too subtle. Version 0.1.17 adds a 10–90% slider with a 60% default. Saved settings without the new amount use that default. A recording snapshots the amount; moving the slider does not alter an active take.</p>
+<p>Ordinary Settings persistence no longer disables and dims the full settings fieldset. The ordered save queue, rollback/epoch guards, and recording/processing locks remain. Regression tests hold saves pending and verify two edits persist without disabling the fieldset; slider tests cover drafts, single commits, keyboard input and persisted values.</p>
+<p>An explicitly run Windows COM test created only its own unique silent session and exercised the production volume-adjustment guard. From baseline 0.800, 10%, 60% and 90% reduction produced 0.720, 0.320 and 0.080, then restored 0.800. A manual test-session change to 0.440 was retained. This test did not adjust other applications&#39; sessions. It is opt-in/ignored during the ordinary suite; its separate execution log is recorded in matching external release verification. Audible playback and real-user 0.1.17 acceptance remain separate.</p>
+<h2>Historical 0.1.16 insertion, background audio and performance</h2>
 <p>Version 0.1.16 addresses transient Windows accessibility focus reads before automatic insertion. Bounded retries accept only the original input identity; window/password/cancellation checks, clipboard publication ownership and no replay after dispatch remain required. Missing original field identity is not accepted as a wildcard. Error messages distinguish unavailable fields and actual focus changes without collecting target contents.</p>
 <p>The optional playback reduction setting defaults off, attenuates other app sessions during recording, and queues conditional restoration when the recording ends. Normal shutdown has a bounded restoration wait. Policy/lifecycle tests do not establish behavior with every audio driver or exclusive-mode player.</p>
 <p>History no longer rebuilds unchanged rows for frequent recording events. Integer microphone formats avoid an intermediate conversion allocation; equivalence tests cover channel averaging, sample extrema, caps and RMS. This changes neither the selected final model nor its decoding settings. No speech-accuracy or end-to-end latency improvement is inferred from these code changes.</p>

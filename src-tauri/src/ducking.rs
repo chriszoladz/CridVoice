@@ -1,7 +1,9 @@
 //! Recording-scoped, per-session Windows audio attenuation. COM stays on one
 //! worker; stopping a recording only queues restoration, never delays inference.
 #[cfg(any(windows, test))]
-const VOLUME_FACTOR: f32 = 0.75;
+fn volume_factor(reduction_percent: u32) -> f32 {
+    1.0 - reduction_percent.clamp(10, 90) as f32 / 100.0
+}
 
 #[cfg(any(windows, test))]
 fn restore_volume(original: f32, applied: f32, current: f32, user_changed: bool) -> Option<f32> {
@@ -45,7 +47,7 @@ impl<T> RecordingScopes<T> {
 
 #[cfg(windows)]
 mod platform {
-    use super::{restore_volume, RecordingScopes, VOLUME_FACTOR};
+    use super::{restore_volume, volume_factor, RecordingScopes};
     use std::{
         collections::HashSet,
         sync::{
@@ -72,7 +74,7 @@ mod platform {
     static WORKER: OnceLock<Option<Sender<Command>>> = OnceLock::new();
 
     enum Command {
-        Begin(u64, Arc<AtomicBool>),
+        Begin(u64, Arc<AtomicBool>, f32),
         Refresh(u64),
         End(u64),
         Shutdown(Sender<()>),
@@ -85,7 +87,7 @@ mod platform {
     }
 
     impl RecordingDucking {
-        pub fn start() -> Option<Self> {
+        pub fn start(reduction_percent: u32) -> Option<Self> {
             let sender = WORKER.get_or_init(|| {
                 let (sender, receiver) = mpsc::channel();
                 let notifications = sender.clone();
@@ -104,10 +106,10 @@ mod platform {
                         let mut current = RecordingScopes::new();
                         while let Ok(command) = receiver.recv() {
                             match command {
-                                Command::Begin(id, active) => {
+                                Command::Begin(id, active, factor) => {
                                     let enabled = active.load(Ordering::Acquire);
                                     current.begin(id, enabled, || {
-                                        let take = Take::new(id, active, notifications.clone()).ok();
+                                        let take = Take::new(id, active, notifications.clone(), factor).ok();
                                         if take.is_none() {
                                             eprintln!("Background audio adjustment is unavailable on this device.");
                                         }
@@ -134,7 +136,13 @@ mod platform {
             }).as_ref()?.clone();
             let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
             let active = Arc::new(AtomicBool::new(true));
-            sender.send(Command::Begin(id, active.clone())).ok()?;
+            sender
+                .send(Command::Begin(
+                    id,
+                    active.clone(),
+                    volume_factor(reduction_percent),
+                ))
+                .ok()?;
             Some(Self { id, active, sender })
         }
 
@@ -243,6 +251,45 @@ mod platform {
         changed: Arc<AtomicBool>,
         armed: bool,
     }
+    impl Adjusted {
+        fn begin(control: IAudioSessionControl, active: &AtomicBool, factor: f32) -> Option<Self> {
+            let volume = control.cast::<ISimpleAudioVolume>().ok()?;
+            let original = unsafe { volume.GetMasterVolume() }.ok()?;
+            if !original.is_finite() || original <= 0.0 {
+                return None;
+            }
+            let applied = original * factor;
+            let changed = Arc::new(AtomicBool::new(false));
+            let events: IAudioSessionEvents = VolumeChanges {
+                changed: changed.clone(),
+                applied,
+            }
+            .into();
+            // No volume changes unless we can observe user adjustments.
+            unsafe { control.RegisterAudioSessionNotification(&events) }.ok()?;
+            let mut adjusted = Self {
+                control,
+                volume,
+                events,
+                original,
+                applied,
+                changed,
+                armed: false,
+            };
+            let same = unsafe { adjusted.volume.GetMasterVolume() }
+                .is_ok_and(|current| (current - original).abs() < 0.0001);
+            if !same || adjusted.changed.load(Ordering::Acquire) || !active.load(Ordering::Acquire)
+            {
+                return None;
+            }
+            if unsafe { adjusted.volume.SetMasterVolume(applied, &EVENT_CONTEXT) }.is_err() {
+                // A failed write must never trigger a compensating write.
+                return None;
+            }
+            adjusted.armed = true;
+            Some(adjusted)
+        }
+    }
     impl Drop for Adjusted {
         fn drop(&mut self) {
             unsafe {
@@ -282,6 +329,7 @@ mod platform {
 
     struct Take {
         active: Arc<AtomicBool>,
+        factor: f32,
         notifications_pending: Arc<AtomicBool>,
         managers: Vec<Manager>,
         seen: HashSet<String>,
@@ -293,12 +341,14 @@ mod platform {
             id: u64,
             active: Arc<AtomicBool>,
             sender: Sender<Command>,
+            factor: f32,
         ) -> windows::core::Result<Self> {
             let devices: IMMDeviceEnumerator =
                 unsafe { CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)? };
             let devices = unsafe { devices.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE)? };
             let mut take = Self {
                 active,
+                factor,
                 notifications_pending: Arc::new(AtomicBool::new(false)),
                 managers: vec![],
                 seen: HashSet::new(),
@@ -366,52 +416,91 @@ mod platform {
                     if !self.seen.insert(key) {
                         continue;
                     }
-                    let Ok(volume) = control.cast::<ISimpleAudioVolume>() else {
-                        continue;
-                    };
-                    let Ok(original) = (unsafe { volume.GetMasterVolume() }) else {
-                        continue;
-                    };
-                    if !original.is_finite() || original <= 0.0 {
-                        continue;
-                    }
-                    let applied = original * VOLUME_FACTOR;
-                    let changed = Arc::new(AtomicBool::new(false));
-                    let events: IAudioSessionEvents = VolumeChanges {
-                        changed: changed.clone(),
-                        applied,
-                    }
-                    .into();
-                    // No volume changes unless we can observe user adjustments.
-                    if unsafe { control.RegisterAudioSessionNotification(&events) }.is_err() {
-                        continue;
-                    }
-                    let mut adjusted = Adjusted {
-                        control,
-                        volume,
-                        events,
-                        original,
-                        applied,
-                        changed,
-                        armed: false,
-                    };
-                    let same = unsafe { adjusted.volume.GetMasterVolume() }
-                        .is_ok_and(|current| (current - original).abs() < 0.0001);
-                    if !same
-                        || adjusted.changed.load(Ordering::Acquire)
-                        || !self.active.load(Ordering::Acquire)
-                    {
-                        continue;
-                    }
-                    if unsafe { adjusted.volume.SetMasterVolume(applied, &EVENT_CONTEXT) }.is_ok() {
-                        adjusted.armed = true;
+                    if let Some(adjusted) = Adjusted::begin(control, &self.active, self.factor) {
                         self.adjusted.push(adjusted);
-                    } else {
-                        // A failed write must never trigger a compensating write.
-                        adjusted.changed.store(true, Ordering::Release);
                     }
                 }
             }
+        }
+    }
+
+    #[cfg(test)]
+    mod real_session_tests {
+        use super::*;
+
+        #[test]
+        #[ignore = "Opt-in hardware integration test: uses only a new silent session owned by this test process"]
+        fn real_windows_session_reduces_restores_and_preserves_manual_adjustment() {
+            // Never call Take::new: it enumerates other applications. This test
+            // creates a unique session and hands only that control to production
+            // adjustment code. The audio client is not started and emits no sound.
+            unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) }
+                .ok()
+                .unwrap();
+            struct Apartment;
+            impl Drop for Apartment {
+                fn drop(&mut self) {
+                    unsafe { CoUninitialize() };
+                }
+            }
+            let _apartment = Apartment;
+            let enumerator: IMMDeviceEnumerator =
+                unsafe { CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL) }.unwrap();
+            let device =
+                unsafe { enumerator.GetDefaultAudioEndpoint(eRender, eMultimedia) }.unwrap();
+            let client: IAudioClient = unsafe { device.Activate(CLSCTX_ALL, None) }.unwrap();
+            let session_id = GUID::from_u128(uuid::Uuid::new_v4().as_u128());
+            let format = unsafe { client.GetMixFormat() }.unwrap();
+            let initialized = unsafe {
+                client.Initialize(
+                    AUDCLNT_SHAREMODE_SHARED,
+                    0,
+                    1_000_000,
+                    0,
+                    format,
+                    Some(&session_id),
+                )
+            };
+            unsafe { CoTaskMemFree(Some(format.cast())) };
+            initialized.unwrap();
+            let manager: IAudioSessionManager2 =
+                unsafe { device.Activate(CLSCTX_ALL, None) }.unwrap();
+            let control = unsafe { manager.GetAudioSessionControl(Some(&session_id), 0) }.unwrap();
+            let detail: IAudioSessionControl2 = control.cast().unwrap();
+            assert_eq!(
+                unsafe { detail.GetProcessId() }.unwrap(),
+                std::process::id()
+            );
+            let volume: ISimpleAudioVolume = control.cast().unwrap();
+            let active = AtomicBool::new(true);
+            for reduction in [10, 60, 90] {
+                unsafe { volume.SetMasterVolume(0.8, &EVENT_CONTEXT) }.unwrap();
+                let adjusted =
+                    Adjusted::begin(control.clone(), &active, volume_factor(reduction)).unwrap();
+                let actual = unsafe { volume.GetMasterVolume() }.unwrap();
+                let expected = 0.8 * volume_factor(reduction);
+                assert!((actual - expected).abs() < 0.0001);
+                drop(adjusted);
+                let restored = unsafe { volume.GetMasterVolume() }.unwrap();
+                assert!((restored - 0.8).abs() < 0.0001);
+                println!("Owned silent Windows session: reduction={reduction}% scalar={actual:.3}, restored={restored:.3}");
+            }
+            let adjusted = Adjusted::begin(control, &active, volume_factor(60)).unwrap();
+            let user_context = GUID::from_u128(uuid::Uuid::new_v4().as_u128());
+            unsafe { volume.SetMasterVolume(0.44, &user_context) }.unwrap();
+            let deadline = std::time::Instant::now() + Duration::from_secs(1);
+            while !adjusted.changed.load(Ordering::Acquire) && std::time::Instant::now() < deadline
+            {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            assert!(
+                adjusted.changed.load(Ordering::Acquire),
+                "Windows volume-change notification was not observed"
+            );
+            drop(adjusted);
+            let preserved = unsafe { volume.GetMasterVolume() }.unwrap();
+            assert!((preserved - 0.44).abs() < 0.0001);
+            println!("Manual fixture adjustment preserved: scalar={preserved:.3}; no other app session was modified");
         }
     }
 }
@@ -473,8 +562,8 @@ mod tests {
 
     #[test]
     fn slight_reduction_restores_the_exact_prior_scalar() {
-        let applied = 0.8 * VOLUME_FACTOR;
-        assert!((applied - 0.6).abs() < 0.0001);
+        let applied = 0.8 * volume_factor(60);
+        assert!((applied - 0.32).abs() < 0.0001);
         assert_eq!(restore_volume(0.8, applied, applied, false), Some(0.8));
     }
     #[test]
@@ -491,8 +580,37 @@ mod tests {
     fn old_settings_keep_ducking_disabled_by_default() {
         let settings: crate::config::Settings = serde_json::from_str("{}").unwrap();
         assert!(!settings.general.duck_background_audio);
+        assert_eq!(settings.general.ducking_reduction_percent, 60);
         let settings: crate::config::Settings =
             serde_json::from_str(r#"{"general":{"duckBackgroundAudio":true}}"#).unwrap();
         assert!(settings.general.duck_background_audio);
+        assert_eq!(settings.general.ducking_reduction_percent, 60);
+    }
+
+    #[test]
+    fn reduction_strength_is_bounded_and_maps_to_remaining_volume() {
+        for (reduction, expected) in [
+            (0, 0.9),
+            (10, 0.9),
+            (25, 0.75),
+            (60, 0.4),
+            (90, 0.1),
+            (100, 0.1),
+        ] {
+            assert!((volume_factor(reduction) - expected).abs() < 0.0001);
+        }
+    }
+
+    #[test]
+    fn settings_reject_out_of_range_strengths_even_when_feature_is_off() {
+        let mut settings = crate::config::Settings::default();
+        for invalid in [0, 9, 91, u32::MAX] {
+            settings.general.ducking_reduction_percent = invalid;
+            assert!(settings.validate().unwrap_err().contains("audio reduction"));
+        }
+        for valid in [10, 60, 90] {
+            settings.general.ducking_reduction_percent = valid;
+            settings.validate().unwrap();
+        }
     }
 }

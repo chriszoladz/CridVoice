@@ -1,6 +1,14 @@
 # Validation report
 
-## Current 0.1.16 insertion, background audio and performance
+## Current 0.1.17 adjustable playback reduction
+
+The user confirmed repeated 0.1.16 takes inserted correctly in the previously affected chat field, then reported that its fixed 25% playback reduction was too subtle. Version 0.1.17 adds a 10–90% slider with a 60% default. Saved settings without the new amount use that default. A recording snapshots the amount; moving the slider does not alter an active take.
+
+Ordinary Settings persistence no longer disables and dims the full settings fieldset. The ordered save queue, rollback/epoch guards, and recording/processing locks remain. Regression tests hold saves pending and verify two edits persist without disabling the fieldset; slider tests cover drafts, single commits, keyboard input and persisted values.
+
+An explicitly run Windows COM test created only its own unique silent session and exercised the production volume-adjustment guard. From baseline 0.800, 10%, 60% and 90% reduction produced 0.720, 0.320 and 0.080, then restored 0.800. A manual test-session change to 0.440 was retained. This test did not adjust other applications' sessions. It is opt-in/ignored during the ordinary suite; its separate execution log is recorded in matching external release verification. Audible playback and real-user 0.1.17 acceptance remain separate.
+
+## Historical 0.1.16 insertion, background audio and performance
 
 Version 0.1.16 addresses transient Windows accessibility focus reads before automatic insertion. Bounded retries accept only the original input identity; window/password/cancellation checks, clipboard publication ownership and no replay after dispatch remain required. Missing original field identity is not accepted as a wildcard. Error messages distinguish unavailable fields and actual focus changes without collecting target contents.
 

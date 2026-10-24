@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.17
+
+- Add a background-audio reduction slider from 10% to 90%, defaulting to a stronger 60% reduction. The control shows how much playback volume remains and saves on release or keyboard confirmation.
+- Prevent Settings from flashing/dimming on each ordinary save. Ordered persistence and recording/processing locks remain in place.
+- Keep the 0.1.16 insertion changes, which the user confirmed worked across repeated takes in the affected chat field. Real Windows session-volume checks use an isolated silent test session; audible user acceptance remains separate.
+
 ## 0.1.16
 
 - Recheck transient accessibility focus reads before insertion, accepting only the original window and input field. Distinguish window changes, field changes and unavailable fields without retaining target text or window titles.

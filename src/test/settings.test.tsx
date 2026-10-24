@@ -52,6 +52,54 @@ function panel(
 }
 
 describe("Persisted settings", () => {
+  it("previews reduction while dragging and saves once on release while preserving newer settings", () => {
+    const settings = structuredClone(defaultSettings);
+    settings.general.duckBackgroundAudio = true;
+    const update = vi.fn(async (_patch: SettingsUpdate) => {});
+    render(panel(settings, update));
+    const slider = screen.getByRole("slider", {
+      name: "Background audio reduction",
+    });
+    expect(slider).toHaveValue("60");
+    fireEvent.change(slider, { target: { value: "80" } });
+    expect(screen.getByText("Reduce by 80%")).toBeInTheDocument();
+    expect(update).not.toHaveBeenCalled();
+    fireEvent.pointerUp(slider);
+    fireEvent.blur(slider);
+    expect(update).toHaveBeenCalledTimes(1);
+    const patch = update.mock.calls[0][0];
+    const latest = structuredClone(settings);
+    latest.general.microphone = "New microphone";
+    latest.general.saveHistory = false;
+    expect(
+      typeof patch === "function" ? patch(latest).general : undefined,
+    ).toEqual({ ...latest.general, duckingReductionPercent: 80 });
+  });
+  it("supports keyboard reduction changes and keeps the chosen amount when disabled", () => {
+    const settings = structuredClone(defaultSettings);
+    const update = vi.fn(async (_patch: SettingsUpdate) => {});
+    const view = render(panel(settings, update));
+    expect(
+      screen.getByRole("slider", { name: "Background audio reduction" }),
+    ).toBeDisabled();
+    settings.general.duckBackgroundAudio = true;
+    view.rerender(panel(settings, update));
+    const slider = screen.getByRole("slider", {
+      name: "Background audio reduction",
+    });
+    fireEvent.change(slider, { target: { value: "90" } });
+    fireEvent.keyUp(slider, { key: "End" });
+    expect(slider).toHaveAttribute(
+      "aria-valuetext",
+      "90% reduction, 10% playback volume",
+    );
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(
+      typeof update.mock.calls[0][0] === "function"
+        ? update.mock.calls[0][0](settings).general?.duckingReductionPercent
+        : undefined,
+    ).toBe(90);
+  });
   it("keeps background audio reduction optional and merges with the latest microphone setting", () => {
     const settings = structuredClone(defaultSettings);
     expect(settings.general.duckBackgroundAudio).toBe(false);

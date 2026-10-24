@@ -27,6 +27,7 @@ There is no hosted CridVoice backend. Rust is the local application backend. Rea
 | `src/CodingControls.tsx` | Shared output-mode and Auto/manual language or shell controls |
 | `src/ProviderModelPicker.tsx` | Explicit shared model-ID fetch, custom fallback, and stale-request guards |
 | `src/ShortcutRecorder.tsx` | Temporary chord capture, conflict feedback, and deliberate save/reset |
+| `src/BackgroundAudioControl.tsx` | Optional playback reduction, local slider draft and deliberate percentage commits |
 | `src/ApplicationStyleEditor.tsx` | Common/recent/running/custom application-name choices |
 | `src/WindowTitlebar.tsx` | Main-window drag/maximize and accessible caption controls |
 | `src/bridge.ts` | Typed Tauri bridge and explicit browser preview |

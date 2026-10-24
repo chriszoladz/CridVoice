@@ -154,8 +154,8 @@ impl Recorder {
         }
         let _ = self.stop.send(());
     }
-    pub fn lower_background_audio(&mut self) {
-        self.ducking = crate::ducking::RecordingDucking::start();
+    pub fn lower_background_audio(&mut self, reduction_percent: u32) {
+        self.ducking = crate::ducking::RecordingDucking::start(reduction_percent);
     }
     pub fn stop_capture(&mut self) -> f64 {
         let duration = self.elapsed();

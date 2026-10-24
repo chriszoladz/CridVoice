@@ -78,9 +78,9 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib
 
 ## Release status
 
-CridVoice 0.1.16 rechecks transient Windows accessibility focus before insertion, accepting only the original window and field. Stable focus adds no intentional delay. Input failures distinguish window changes, field changes and unavailable field identity; no input is replayed after dispatch. Settings adds optional 25% reduction of other apps' playback during recording, with restoration when the take ends. It defaults off and requires no downloads.
+CridVoice 0.1.17 keeps the 0.1.16 insertion improvements and adds an adjustable background-audio reduction slider, from 10% to 90%, with a 60% default. The optional switch remains off by default, restores playback when recording ends, and requires no downloads. Settings no longer dims/flashes its controls on each ordinary save.
 
-History avoids rebuilding unchanged rows during live audio updates, and integer-format microphones avoid an intermediate conversion buffer per callback. The final model, decoder, clipboard ownership, password exclusion and current-take isolation are preserved. Matching external 0.1.16 verification records executed checks, build/install results and scoped human acceptance. Earlier results below retain their original versions.
+History avoids rebuilding unchanged rows during live audio updates, and integer-format microphones avoid an intermediate conversion buffer per callback. The final model, decoder, clipboard ownership, password exclusion and current-take isolation are preserved. The user confirmed repeated 0.1.16 dictation inserted correctly in the affected chat field. Matching external 0.1.17 verification records executed checks, build/install results and scoped human acceptance. Earlier results below retain their original versions.
 
 ### Historical 0.1.15 settings polish
 

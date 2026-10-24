@@ -35,7 +35,8 @@ Settings are serialized as camelCase JSON. Edit through the app; stop it before 
 | `general.saveHistory` | `true` | Save original and final transcript text |
 | `general.context` | `true` | Read available context in the focused control |
 | `general.microphone` | empty | Windows default, or exact input device name |
-| `general.duckBackgroundAudio` | `false` | Temporarily reduce other apps' playback by 25% while recording; restore afterward without overwriting manual volume changes |
+| `general.duckBackgroundAudio` | `false` | Temporarily reduce supported other apps' playback while recording; restore afterward while retaining observed manual volume changes |
+| `general.duckingReductionPercent` | `60` | Playback reduction from 10 to 90 percent; 60 leaves 40% of the original session volume |
 | `general.maxRecordingSeconds` | `300` | 10–1800 seconds; UI offers common durations |
 | `general.historyDays` | `0` | 0 = until deleted; otherwise retention days |
 

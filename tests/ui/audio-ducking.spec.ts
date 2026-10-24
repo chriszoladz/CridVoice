@@ -18,8 +18,25 @@ test("optional background audio reduction persists across reopen and stays reada
     name: "Lower background audio while speaking",
   });
   await expect(toggle).toHaveAttribute("aria-checked", "false");
+  const reduction = page.getByRole("slider", {
+    name: "Background audio reduction",
+  });
+  await expect(reduction).toBeDisabled();
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-checked", "true");
+  await expect(reduction).toHaveValue("60");
+  await reduction.focus();
+  await page.keyboard.press("End");
+  await expect(reduction).toHaveValue("90");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem("cridvoice-preview")!).general
+            .duckingReductionPercent,
+      ),
+    )
+    .toBe(90);
   await expect
     .poll(() =>
       page.evaluate(
@@ -32,17 +49,16 @@ test("optional background audio reduction persists across reopen and stays reada
   await page.reload();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(toggle).toHaveAttribute("aria-checked", "true");
-  await toggle.scrollIntoViewIfNeeded();
-  await expect(
-    page.getByText(/Temporarily lower other apps by 25%/),
-  ).toBeVisible();
+  await expect(reduction).toHaveValue("90");
+  await reduction.scrollIntoViewIfNeeded();
+  await expect(page.getByText("Reduce by 90%", { exact: true })).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
   await page.screenshot({
-    path: path.resolve("../validation/background-audio-0.1.16-compact.png"),
+    path: path.resolve("../validation/background-audio-0.1.17-compact.png"),
   });
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-checked", "false");

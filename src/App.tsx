@@ -1300,7 +1300,7 @@ export default function App() {
           ) : page === "appearance" ? (
             <Appearance {...props} />
           ) : (
-            <SettingsPanel {...props} />
+            <SettingsPanel {...props} controlsDisabled={busy || recording} />
           )}
           <footer className="content-footer">
             <span>No automatic cloud fallback</span>

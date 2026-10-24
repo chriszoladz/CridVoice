@@ -606,6 +606,67 @@ it("reflects saved settings from another window while preserving an in-flight lo
   await waitFor(() => expect(language).toHaveValue("en"));
 });
 
+it("keeps settings controls steady during queued saves and locks them only for active dictation", async () => {
+  const saves: { settings: typeof snapshot.settings; finish: () => void }[] =
+    [];
+  bridge.saveSettings.mockImplementation(
+    (settings: typeof snapshot.settings) =>
+      new Promise<void>((resolve) => {
+        saves.push({
+          settings,
+          finish() {
+            snapshot.settings = settings;
+            resolve();
+          },
+        });
+      }),
+  );
+  render(<App />);
+  fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+  const ducking = screen.getByRole("switch", {
+    name: "Lower background audio while speaking",
+  });
+  const history = screen.getByRole("switch", {
+    name: "Save transcript history",
+  });
+  const fieldset = ducking.closest("fieldset")!;
+  const disabledChanges: MutationRecord[] = [];
+  const observer = new MutationObserver((changes) =>
+    disabledChanges.push(...changes),
+  );
+  observer.observe(fieldset, {
+    attributes: true,
+    attributeFilter: ["disabled"],
+  });
+  try {
+    fireEvent.click(ducking);
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(ducking).toHaveAttribute("aria-checked", "true");
+    expect(ducking).toBeEnabled();
+    expect(history).toBeEnabled();
+    fireEvent.click(history);
+    expect(history).toHaveAttribute("aria-checked", "false");
+    await act(async () => saves[0].finish());
+    await waitFor(() => expect(saves).toHaveLength(2));
+    expect(saves[1].settings.general).toMatchObject({
+      duckBackgroundAudio: true,
+      saveHistory: false,
+    });
+    await act(async () => saves[1].finish());
+    await screen.findByText("Saved locally");
+    expect(disabledChanges).toHaveLength(0);
+    expect(ducking).toBeEnabled();
+    expect(history).toBeEnabled();
+    await act(async () => onSession({ ...emptySession, status: "recording" }));
+    expect(ducking).toBeDisabled();
+    expect(history).toBeDisabled();
+    await act(async () => onSession(emptySession));
+    expect(ducking).toBeEnabled();
+  } finally {
+    observer.disconnect();
+  }
+});
+
 it("ignores an older delayed snapshot after a newer model update", async () => {
   render(<App />);
   await waitFor(() =>

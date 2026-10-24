@@ -125,6 +125,7 @@ impl Default for Shortcuts {
 #[serde(rename_all = "camelCase", default)]
 pub struct General {
     pub duck_background_audio: bool,
+    pub ducking_reduction_percent: u32,
     pub insertion_method: String,
     pub startup: bool,
     pub save_history: bool,
@@ -137,6 +138,7 @@ impl Default for General {
     fn default() -> Self {
         Self {
             duck_background_audio: false,
+            ducking_reduction_percent: 60,
             insertion_method: "clipboard".into(),
             startup: false,
             save_history: true,
@@ -191,6 +193,9 @@ impl Settings {
             &["clipboard", "unicode"],
             "insertion method",
         )?;
+        if !(10..=90).contains(&self.general.ducking_reduction_percent) {
+            return Err("Background audio reduction must be between 10% and 90%.".into());
+        }
         for device in [&self.transcription.device, &self.cleanup.device] {
             one(device, &["auto", "cpu", "cuda"], "device")?;
         }

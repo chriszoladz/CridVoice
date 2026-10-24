@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import BackgroundAudioControl from "./BackgroundAudioControl";
 import {
   Check,
   Cloud,
@@ -1473,15 +1474,10 @@ export function SettingsPanel({
                 Windows default microphone.
               </p>
             )}
-          <Toggle
-            label="Lower background audio while speaking"
-            description="Temporarily lower other apps by 25% while recording, then restore their volume when you stop. Volume changes you make while speaking are kept."
-            checked={s.general.duckBackgroundAudio}
-            onChange={(v) =>
-              change((current) => ({
-                general: { ...current.general, duckBackgroundAudio: v },
-              }))
-            }
+          <BackgroundAudioControl
+            general={s.general}
+            update={update}
+            notify={notify}
           />
           {s.transcription.mode === "openai" && s.appearance.livePreview && (
             <p className="helper">

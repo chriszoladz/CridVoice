@@ -64,7 +64,9 @@ The popup's fixed two-line area follows the newest words. Overview follows updat
 
 ## Lower background audio
 
-In **Settings → Speech recognition**, turn on **Lower background audio while speaking** to reduce other apps' playback by 25% during recording. It is off by default. The volume returns when you stop or cancel, before final recognition and cleanup. Volume changes you make while recording are kept.
+In **Settings → Speech recognition**, turn on **Lower background audio while speaking**, then adjust **Background audio reduction** from 10% to 90%. Higher values make other apps quieter. The default 60% reduction leaves playback at 40% of its original session volume. The switch is off by default; the slider remembers its amount when switched off.
+
+The displayed amount follows the slider immediately. Release the slider, finish a keyboard adjustment, or leave it to save the amount. It applies to the next recording. The volume returns when you stop or cancel, before final recognition and cleanup. Observed manual volume changes during recording are kept. Settings stays visually stable while ordinary saves complete in the background.
 
 This lowers computer playback such as music or a video. It does not remove room noise from the microphone recording. See Troubleshooting for supported playback devices and restoration behavior.
 

@@ -385,7 +385,7 @@ async fn start(
     state.insert.store(insert, Ordering::Relaxed);
     let mut recorder = Recorder::start(&s.general.microphone, s.general.max_recording_seconds)?;
     if s.general.duck_background_audio {
-        recorder.lower_background_audio();
+        recorder.lower_background_audio(s.general.ducking_reduction_percent);
     }
     let recording_started = Instant::now();
     let level = recorder.level.clone();
