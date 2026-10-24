@@ -6,6 +6,7 @@
 - Preserve intentional slang, nicknames and forms of address by default, including in Balanced and Thorough. Personal guidance cannot override facts, uncertainty or intended meaning, and remains separate from code/CLI modes.
 - Keep examples explicitly illustrative rather than claiming they reflect arbitrary custom instructions. Document preference storage, routing and limits.
 - Apply multiline terminal review to Text as well as code, keeping formatted prose out of automatic terminal pastes. Show the review notice for either mode.
+- Check personalized Text responses in the existing model call, preserve raw text on rejection, and offer recovery without leaving an unsaved preference draft. Keep default dictation and live preview on their existing fast paths.
 
 ## 0.1.19
 

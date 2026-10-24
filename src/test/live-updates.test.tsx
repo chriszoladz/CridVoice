@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DownloadProgress, Session, Snapshot } from "../types";
@@ -919,6 +920,136 @@ it("persists separate code and generation modes with a freeform hint across Over
   );
   expect(snapshot.settings.cleanup.style).toBe("faithful");
 });
+
+it("copies a failed raw Text result on Writing styles without navigating away or losing a preferences draft", async () => {
+  const writeText = vi.fn(async (_value: string) => {});
+  Object.defineProperty(navigator, "clipboard", {
+    value: { writeText },
+    configurable: true,
+  });
+  render(<App />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Writing styles" }),
+  );
+  const editor = screen.getByRole("textbox", {
+    name: /How should CridVoice write for you/,
+  });
+  const draft = "Keep bro and my own slang. Use short paragraphs.";
+  fireEvent.change(editor, { target: { value: draft } });
+  const raw = "Bro, I need the draft today. I am not promising Friday.\n";
+  await act(async () =>
+    onSession({
+      ...emptySession,
+      status: "error",
+      outputMode: "text",
+      resultIsRaw: true,
+      result: raw,
+      error:
+        "Text cleanup failed: These preferences could not be applied. The raw transcript is available to copy.",
+    }),
+  );
+  expect(
+    screen.getByRole("button", { name: "Writing styles" }),
+  ).toHaveAttribute("aria-current", "page");
+  expect(editor).toHaveValue(draft);
+  expect(editor).toBe(
+    screen.getByRole("textbox", { name: /How should CridVoice write for you/ }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Copy raw transcript" }),
+  );
+  await waitFor(() => expect(writeText).toHaveBeenCalledWith(raw));
+  expect(bridge.saveSettings).not.toHaveBeenCalled();
+  expect(editor).toHaveValue(draft);
+  fireEvent.click(screen.getByRole("button", { name: "Dismiss error" }));
+  expect(
+    screen.queryByRole("button", { name: "Copy raw transcript" }),
+  ).not.toBeInTheDocument();
+  expect(editor).toHaveValue(draft);
+});
+
+it("keeps a preferences draft after raw-copy permission failure and disables recovery during active work", async () => {
+  const writeText = vi.fn(async (_value: string) => {
+    throw new Error("Fixture clipboard blocked");
+  });
+  Object.defineProperty(navigator, "clipboard", {
+    value: { writeText },
+    configurable: true,
+  });
+  render(<App />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Writing styles" }),
+  );
+  const editor = screen.getByRole("textbox", {
+    name: /How should CridVoice write for you/,
+  });
+  fireEvent.change(editor, { target: { value: "Keep my current draft" } });
+  const failed = {
+    ...emptySession,
+    status: "error" as const,
+    outputMode: "text" as const,
+    resultIsRaw: true,
+    result: "Unchanged raw take",
+    error: "Cleanup failed",
+  };
+  await act(async () => onSession(failed));
+  fireEvent.click(screen.getByRole("button", { name: "Copy raw transcript" }));
+  await screen.findByText("Clipboard access was blocked.");
+  expect(editor).toHaveValue("Keep my current draft");
+  for (const status of [
+    "recording",
+    "transcribing",
+    "cleaning",
+    "inserting",
+    "loading",
+  ] as const) {
+    await act(async () => onSession({ ...failed, status }));
+    expect(
+      screen.getByRole("button", { name: "Copy raw transcript" }),
+    ).toBeDisabled();
+  }
+  await act(async () => onSession({ ...failed, resultIsRaw: false }));
+  expect(
+    screen.queryByRole("button", { name: "Copy raw transcript" }),
+  ).not.toBeInTheDocument();
+  await act(async () => onSession({ ...failed, result: "" }));
+  expect(
+    screen.queryByRole("button", { name: "Copy raw transcript" }),
+  ).not.toBeInTheDocument();
+  expect(writeText).toHaveBeenCalledTimes(1);
+  expect(bridge.saveSettings).not.toHaveBeenCalled();
+});
+
+it.each(["preferences", "wording", "slang", "personal instructions"])(
+  "finds Writing styles by %s without losing an unsaved preferences draft",
+  async (query) => {
+    render(<App />);
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Writing styles",
+      }),
+    );
+    const editor = screen.getByRole("textbox", {
+      name: /How should CridVoice write for you/,
+    });
+    fireEvent.change(editor, {
+      target: { value: "An unsaved personal preference" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Find a page" }),
+    );
+    const dialog = screen.getByRole("dialog", { name: "Find a page" });
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: "Find a page" }),
+      { target: { value: query } },
+    );
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: /Writing styles/ }),
+    );
+    expect(editor).toHaveValue("An unsaved personal preference");
+    expect(bridge.saveSettings).not.toHaveBeenCalled();
+  },
+);
 
 it("shows captured generated output on Overview with exact whitespace and copying after settings change", async () => {
   const writeText = vi.fn(async (_value: string) => {});

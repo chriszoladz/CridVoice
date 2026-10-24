@@ -130,7 +130,7 @@ const pageKeywords: Record<Page, string> = {
   appearance:
     "theme preset color colour dark light system font text size preview waveform overlay popup",
   styles:
-    "application app rules tone formal casual professional writing code language shell override",
+    "application app rules tone formal casual professional writing code language shell override preferences wording slang personal instructions rewrite strength",
   providers:
     "api key endpoint url server cloud openai anthropic lm studio connection model id",
   models:
@@ -950,6 +950,17 @@ export default function App() {
             <div className="error-banner" role="alert">
               <ShieldCheck size={19} />
               <p>{session.error}</p>
+              {session.resultIsRaw && session.result && (
+                <button
+                  type="button"
+                  className="button secondary small"
+                  disabled={busy || recording}
+                  onClick={() => void copy(session.result)}
+                >
+                  <Copy size={14} />
+                  Copy raw transcript
+                </button>
+              )}
               <button
                 className="icon-button"
                 aria-label="Dismiss error"

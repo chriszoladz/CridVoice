@@ -45,9 +45,11 @@ Settings are serialized as camelCase JSON. Edit through the app; stop it before 
 
 The preview model is fixed to `whisper-preview` on a two-thread CPU worker and is not a final-model selection or a new persisted setting. Setup requires it only when `transcription.mode` is `local` and `appearance.livePreview` is enabled. Provider speech keeps its selected provider and cadence. Final speech settings continue to control the complete-take recognition.
 
-**Settings > Windows & storage > Copy dictation to clipboard** works with either insertion method. It runs once after the insertion attempt and temporary clipboard restoration, so the completed result remains available for Ctrl + V when insertion is blocked. This opt-in intentionally replaces whatever was on the clipboard at completion, including something copied while the take was processing. Cancelled/stale takes, test recordings, raw cleanup-failure fallbacks and code requiring review do not auto-copy. Generated code and multiline terminal output retain their review-and-Copy flow. A copy failure never retries insertion. Existing settings keep this option off until enabled.
+**Settings > Windows & storage > Copy dictation to clipboard** works with either insertion method. It runs once after the insertion attempt and temporary clipboard restoration, so the completed result remains available for Ctrl + V when insertion is blocked. This opt-in intentionally replaces whatever was on the clipboard at completion, including something copied while the take was processing. Cancelled/stale takes, test recordings, raw cleanup-failure fallbacks and output requiring review do not auto-copy. Generated code and multiline terminal output retain their review-and-Copy flow. A copy failure never retries insertion. Existing settings keep this option off until enabled.
 
 ## Interface preferences
+
+Nonempty personal or matching app guidance uses the checked Text response contract. The managed local model gets a bounded 256-token processing allowance within the same cleanup request; ordinary Text, warmup and technical modes do not enable it. This is an internal limit, not a persisted setting. Ordinary Text uses low-variation decoding, while customized local responses use their checked editing path. A rejected or malformed response preserves raw text and blocks automatic insertion/copy; no loose plain-text fallback is accepted for the checked contract.
 
 Collapsed navigation is a remembered local interface preference, separate from `settings.json`. It retains an icon rail; **Collapse sidebar** and **Expand sidebar** change the view without modifying speech, cleanup, or provider settings. Scrollbar and button hover/focus colors follow the existing appearance settings and add no new persisted fields.
 
@@ -94,7 +96,7 @@ Changes are validated in Rust before persisting. JSON files use temporary writes
 
 The interface exposes **Output mode** separately from **Code language or shell**, whose choices include Automatic, common language/shell hints, and **Other / custom…**. They all use the same `codeLanguage` field; an empty value means Automatic. No separate detection/preset setting is persisted, and this control never chooses or changes the output mode automatically. Text writing styles remain separate from literal code/generation instructions.
 
-The legacy `cleanup.style: "code"` remains valid as a text-cleanup preset. Dedicated technical behavior is selected through `outputMode`. Generate results always require review and Copy. Literal multiline output also requires review when the captured target is a recognized terminal. Neither mode adds an Enter action.
+The legacy `cleanup.style: "code"` remains valid as a text-cleanup preset. Dedicated technical behavior is selected through `outputMode`. Generate results always require review and Copy. Any multiline Text or code output requires review when the captured target is a recognized terminal. Neither mode adds an Enter action.
 
 ## Setup and repair readiness
 

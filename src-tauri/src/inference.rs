@@ -1171,6 +1171,8 @@ impl Inference {
             .arg("8192")
             .arg("--parallel")
             .arg("1")
+            .arg("--reasoning-budget")
+            .arg(core::WRITING_PREF_REASONING_BUDGET.to_string())
             .arg("--n-gpu-layers")
             .arg(if gpu { "99" } else { "0" })
             .arg("--no-webui")

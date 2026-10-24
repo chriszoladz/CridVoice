@@ -147,6 +147,10 @@ Use **How should CridVoice write for you?** to set personal wording and tone pre
 
 The first matching application's **Extra guidance for this app** can refine your general tone or formatting preferences. Personal guidance does not change code/CLI modes and has no effect while cleanup is off. It uses the existing cleanup request, without another model call. Preferences are saved in local settings and included in requests to your selected text cleanup model or provider.
 
+Custom instructions use a more careful response check. With managed local AI this includes a short, bounded processing step inside the same response, so personalized cleanup can take longer. Dictation without personal or matching app guidance keeps the fast path; live speech preview is unchanged. Writing strength still controls editing amount, and the chosen tone remains the default when your instructions do not override it.
+
+If the model identifies a preference as a request to invent or change content, or cannot return a valid checked response, CridVoice retains the raw transcript and shows an error. That result is neither inserted nor automatically copied. **Copy raw transcript** in the error banner works from any page without discarding an open writing-preference draft. Correct the instructions or choose **Use defaults**; also clear that application's extra guidance if applicable. The check is a model judgment, so important facts still need review.
+
 The **You say** / **CridVoice writes** example updates with both style and rewrite strength. These local illustrations use default preferences and show different wording and structure while retaining the example's facts, uncertainty and requests. Arbitrary personal instructions do not regenerate this illustration. Examples make no provider or model requests; exact AI wording may vary. Cleanup Off and code/generation modes show explicit notices because writing styles apply to Text cleanup.
 
 The Technical writing style is a text-cleanup preset, stored under the existing `code` style ID for compatibility. Use the dedicated **Output mode** controls for literal code dictation or generation from instructions.

@@ -117,6 +117,10 @@ export default function WritingPreferences({
         first. Applies to Text mode across styles and strengths; code and CLI
         modes are unchanged.
       </p>
+      <p className="helper">
+        Custom preferences may take a little longer to apply while CridVoice
+        checks your requested changes.
+      </p>
       <div className="writing-preferences-actions">
         <button
           type="button"
