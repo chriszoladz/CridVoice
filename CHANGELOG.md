@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.19
+
+- Replace the cramped header processing text with a compact settings button showing the configured local/provider routes, with accessible details and clear save feedback.
+- Preserve 0.1.18's native insertion, clipboard, writing-strength and security changes. The user confirmed repeated insertion in the affected chat field with 0.1.18.
+
 ## 0.1.18
 
 - Keep a persistent Windows accessibility connection and verify the actual editor instead of comparing transient text fragments. Recreated editors require strong identity evidence; changed fields, windows and password controls remain protected.

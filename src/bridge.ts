@@ -33,7 +33,7 @@ const previewSnapshot = (): Snapshot => ({
     threads: 0,
   },
   models: [],
-  version: "0.1.18",
+  version: "0.1.19",
   portable: false,
   dataDir: "Available in desktop app",
 });

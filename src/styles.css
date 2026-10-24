@@ -495,7 +495,16 @@ nav button.active:before {
 .topbar-information {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.window-titlebar .breadcrumb {
+  min-width: 0;
+}
+.window-titlebar .breadcrumb strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .window-controls {
   display: flex;
@@ -549,17 +558,35 @@ nav button.active:before {
   align-items: center;
   gap: 15px;
 }
-.processing-route {
-  color: var(--muted);
-  font-size: 0.78rem;
+.processing-status-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.928571rem;
+  line-height: 1.15;
   white-space: nowrap;
+}
+.processing-status-button:hover {
+  background: var(--surface-hover);
+  border-color: var(--muted);
 }
 .saving {
   display: flex;
-  gap: 5px;
+  gap: 6px;
   align-items: center;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 0.928571rem;
+  white-space: nowrap;
+}
+.saving.save-failed {
+  color: var(--red);
 }
 .preview-banner {
   padding: 7px 38px;
@@ -2425,8 +2452,13 @@ progress::-webkit-progress-value {
     grid-column: 2;
     justify-self: end;
   }
-  .topbar-information .saving {
-    display: none;
+  .topbar-information .save-status-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 @media (max-width: 800px) {

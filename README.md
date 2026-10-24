@@ -78,9 +78,9 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib
 
 ## Release status
 
-CridVoice 0.1.18 updates Windows focus tracking for browser/editor accessibility changes, adds an optional completed-dictation clipboard copy in Settings > Windows & storage, and improves Text cleanup instructions for grammar and multi-topic thoughts. The clipboard option is off by default and intentionally replaces previous clipboard contents when enabled. Code awaiting review keeps its explicit Copy flow.
+CridVoice 0.1.19 gives the header a compact processing-settings button and clearer save feedback. It retains 0.1.18's Windows focus tracking, optional completed-dictation clipboard copy, and adjustable Text rewrite strength. The clipboard option is off by default and intentionally replaces previous clipboard contents when enabled. Code awaiting review keeps its explicit Copy flow.
 
-The release also patches affected HTTPS certificate-trust and development test dependencies, bounds AI response sizes, and limits development servers to loopback. See the [dated security review](docs/SECURITY-REVIEW-2026-10-24.md) for findings, sources and scope. Automated, installed and actual target-app results belong to the matching external release verification; native unit tests alone do not establish successful Chrome/chat insertion.
+The release also retains the HTTPS certificate-trust and development dependency patches, AI response size limits and loopback development-server binding. See the [dated security review](docs/SECURITY-REVIEW-2026-10-24.md) for findings, sources and scope. The user confirmed repeated insertion in the affected chat field with installed 0.1.18. Automated, installed and actual target-app results belong to matching external verification; that scoped report does not establish every browser or application.
 
 The 0.1.17 background-audio slider and Settings flicker fix remain available, along with the existing history/audio performance improvements. Its accepted behavior is historical evidence; the user subsequently reported intermittent focus-related insertion failures, motivating 0.1.18. Earlier results below retain their original versions.
 

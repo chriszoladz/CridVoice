@@ -5,7 +5,6 @@ import {
   ArrowRight,
   AudioLines,
   BookOpen,
-  Check,
   CheckCircle2,
   CircleHelp,
   Clock3,
@@ -59,6 +58,7 @@ import { applyAppearance } from "./themes";
 import Onboarding from "./Onboarding";
 import CodingControls from "./CodingControls";
 import WindowTitlebar from "./WindowTitlebar";
+import ProcessingStatus from "./ProcessingStatus";
 import TranscriptPreview from "./TranscriptPreview";
 import { BrandLockup, BrandMark } from "./BrandMark";
 import { getSetupPlan } from "./setupPlan";
@@ -160,6 +160,7 @@ export default function App() {
     [setup, setSetup] = useState(false),
     [setupRepair, setSetupRepair] = useState(false),
     [saving, setSaving] = useState(false),
+    [saveFailed, setSaveFailed] = useState(false),
     [fatal, setFatal] = useState(""),
     [help, setHelp] = useState(false),
     [search, setSearch] = useState(""),
@@ -421,12 +422,16 @@ export default function App() {
     try {
       await saving;
       lastSaved.current = next;
-      if (count === saveCount.current) setSaving(false);
+      if (count === saveCount.current) {
+        setSaving(false);
+        setSaveFailed(false);
+      }
     } catch (e) {
       if (count === saveCount.current) {
         settingsRef.current = lastSaved.current;
         setSettings(lastSaved.current);
         setSaving(false);
+        setSaveFailed(true);
       }
       notify(`Settings could not be saved: ${String(e)}`, true);
       throw e;
@@ -717,6 +722,16 @@ export default function App() {
     detectedLanguage: session.codingLanguage,
     detectionActive: busy || recording,
   };
+  function openProcessingSettings() {
+    props.openSettings();
+    requestAnimationFrame(() => {
+      const section = document.getElementById("settings-speech");
+      section?.scrollIntoView({ block: "start" });
+      section
+        ?.querySelector<HTMLElement>("select, input, button")
+        ?.focus({ preventScroll: true });
+    });
+  }
   const dictationStatus = recording
     ? "Recording"
     : busy
@@ -887,27 +902,12 @@ export default function App() {
             {sidebarToggle}
             <strong>{navigation.find((n) => n.id === page)?.label}</strong>
           </div>
-          <div className="topbar-information">
-            {saving ? (
-              <span className="saving">
-                <LoaderCircle size={12} className="spin" />
-                Saving
-              </span>
-            ) : (
-              <span className="saving">
-                <Check size={12} />
-                Saved locally
-              </span>
-            )}
-            <span className="processing-route">
-              Speech: {localSpeech ? "local" : "provider"} · Cleanup:{" "}
-              {settings.cleanup.mode === "off"
-                ? "off"
-                : localCleanup
-                  ? "local"
-                  : "provider"}
-            </span>
-          </div>
+          <ProcessingStatus
+            settings={settings}
+            saving={saving}
+            saveFailed={saveFailed}
+            openSettings={openProcessingSettings}
+          />
         </WindowTitlebar>
         {!desktop && (
           <div className="preview-banner">

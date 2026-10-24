@@ -42,6 +42,8 @@ The reset action restores that binding's default, subject to conflict validation
 
 ## Dictation
 
+The header's processing button shows whether speech and text cleanup use local models or configured providers. Hover or focus it for the separate routes; click it to open the speech-processing settings. The adjacent save indicator reports settings saves. Model loading/readiness remains visible on Overview and Local models.
+
 Installed selected local models warm in the background after launch. Overview shows their live readiness, and Local models offers **Load selected models** or **Retry model loading**. You can begin recording while they prepare; processing may still wait if warm-up has not finished. Explicitly unloading models cancels pending warm-up and releases the engines until you load or use them again, change the selected local route, or restart the app. Completed downloads alone do not undo explicit unloading. External providers remain under their own control and are not contacted by this preparation.
 
 In the default **Text** output mode, place your cursor in the target text field. Hold **Ctrl + Windows**, speak naturally, and release both keys. The app captures only while recording, transcribes your audio, performs selected text cleanup, and inserts the result. Keep the field focused until insertion finishes. Technical modes can instead open the result for review as described below.
