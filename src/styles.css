@@ -1556,6 +1556,37 @@ progress::-webkit-progress-value {
   font-size: 1rem;
   border-radius: 4px;
 }
+.writing-preferences {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+}
+.writing-preferences textarea {
+  resize: vertical;
+  min-height: 96px;
+  max-height: 360px;
+  line-height: 1.5;
+}
+.writing-preferences textarea:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 3px;
+}
+.writing-preferences .field-error {
+  color: var(--red);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.writing-preferences-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.writing-preferences-actions > small {
+  margin-left: auto;
+  white-space: nowrap;
+}
 .style-example {
   background: var(--surface-raised);
   border: 1px solid var(--border);

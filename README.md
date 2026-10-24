@@ -78,7 +78,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib
 
 ## Release status
 
-CridVoice 0.1.19 gives the header a compact processing-settings button and clearer save feedback. It retains 0.1.18's Windows focus tracking, optional completed-dictation clipboard copy, and adjustable Text rewrite strength. The clipboard option is off by default and intentionally replaces previous clipboard contents when enabled. Code awaiting review keeps its explicit Copy flow.
+CridVoice 0.1.20 adds optional personal writing preferences across Text styles and rewrite strengths. Save your preferred wording, tone and formatting in Writing styles, with extra guidance available for individual apps. Balanced and Thorough preserve intentional slang and forms of address by default. The compact header, Windows focus tracking and optional completed-dictation clipboard copy remain available. Clipboard copying is off by default and intentionally replaces previous clipboard contents when enabled. Code awaiting review keeps its explicit Copy flow.
 
 The release also retains the HTTPS certificate-trust and development dependency patches, AI response size limits and loopback development-server binding. See the [dated security review](docs/SECURITY-REVIEW-2026-10-24.md) for findings, sources and scope. The user confirmed repeated insertion in the affected chat field with installed 0.1.18. Automated, installed and actual target-app results belong to matching external verification; that scoped report does not establish every browser or application.
 

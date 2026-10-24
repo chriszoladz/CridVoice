@@ -42,6 +42,7 @@ pub struct Cleanup {
     pub provider_id: String,
     pub style: String,
     pub rewrite_strength: String,
+    pub writing_preferences: String,
     pub output_mode: String,
     pub code_language: String,
 }
@@ -54,6 +55,7 @@ impl Default for Cleanup {
             provider_id: String::new(),
             style: "faithful".into(),
             rewrite_strength: "balanced".into(),
+            writing_preferences: String::new(),
             output_mode: "text".into(),
             code_language: String::new(),
         }
@@ -251,6 +253,9 @@ impl Settings {
             &["light", "balanced", "thorough"],
             "editing amount",
         )?;
+        if self.cleanup.writing_preferences.chars().count() > 2000 {
+            return Err("Writing preferences must be 2,000 characters or fewer.".into());
+        }
         for rule in &self.app_rules {
             if rule.app.trim().is_empty() {
                 return Err("Application rules need a nonempty executable name.".into());
@@ -352,5 +357,53 @@ mod rewrite_strength_tests {
             settings.cleanup.rewrite_strength = strength.into();
             assert!(settings.validate().unwrap_err().contains("editing amount"));
         }
+    }
+
+    #[test]
+    fn old_settings_default_writing_preferences_without_resetting_existing_choices() {
+        let mut saved = serde_json::to_value(Settings::default()).unwrap();
+        saved["cleanup"]
+            .as_object_mut()
+            .unwrap()
+            .remove("writingPreferences");
+        saved["cleanup"]["rewriteStrength"] = "thorough".into();
+        saved["cleanup"]["style"] = "casual".into();
+        saved["cleanup"]["codeLanguage"] = "PowerShell".into();
+        let loaded: Settings = serde_json::from_value(saved).unwrap();
+        assert!(loaded.cleanup.writing_preferences.is_empty());
+        assert_eq!(loaded.cleanup.rewrite_strength, "thorough");
+        assert_eq!(loaded.cleanup.style, "casual");
+        assert_eq!(loaded.cleanup.code_language, "PowerShell");
+        assert!(loaded.validate().is_ok());
+    }
+
+    #[test]
+    fn writing_preferences_round_trip_and_count_unicode_characters() {
+        let mut settings = Settings::default();
+        settings.cleanup.writing_preferences =
+            "Keep bro, not buddy.\nZachowaj mój styl i polskie znaki.".into();
+        let saved = serde_json::to_value(&settings).unwrap();
+        assert_eq!(
+            saved["cleanup"]["writingPreferences"],
+            settings.cleanup.writing_preferences
+        );
+        let loaded: Settings = serde_json::from_value(saved).unwrap();
+        assert_eq!(
+            loaded.cleanup.writing_preferences,
+            settings.cleanup.writing_preferences
+        );
+        assert!(loaded.validate().is_ok());
+        settings.cleanup.writing_preferences = "🙂".repeat(2000);
+        assert!(
+            settings.validate().is_ok(),
+            "The limit counts characters, not UTF-8 bytes."
+        );
+        settings.cleanup.writing_preferences.push('a');
+        assert_eq!(
+            settings.validate().unwrap_err(),
+            "Writing preferences must be 2,000 characters or fewer."
+        );
+        settings.cleanup.writing_preferences.clear();
+        assert!(settings.validate().is_ok());
     }
 }

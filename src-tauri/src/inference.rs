@@ -892,7 +892,7 @@ impl Inference {
             .cleanup_inner(app, s, raw, ctx, rewrite, context)
             .await?;
         let mut output = crate::coding::normalize_output(s, raw, rewrite, output);
-        output.text = core::format_text_cleanup_output(s, raw, output.text, rewrite);
+        output.text = core::format_text_cleanup_output(s, raw, output.text, rewrite, ctx);
         Ok(output)
     }
     async fn cleanup_inner(

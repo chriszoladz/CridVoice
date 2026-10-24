@@ -37,6 +37,7 @@ import {
 import { resolveAppearance, themes } from "./themes";
 import CodingControls from "./CodingControls";
 import ApplicationStyleEditor from "./ApplicationStyleEditor";
+import WritingPreferences from "./WritingPreferences";
 import ProviderModelPicker from "./ProviderModelPicker";
 import ShortcutRecorder, { shortcutProblem } from "./ShortcutRecorder";
 import {
@@ -1039,15 +1040,24 @@ export function Styles({
           </Field>
         </div>
         <p className="helper">
-          Your meaning, facts, uncertainty and distinct points come first at every
-          strength. Application rules change tone; this strength applies across
-          Text styles.
+          Your meaning, facts, uncertainty and distinct points come first at
+          every strength. Application rules change tone; this strength applies
+          across Text styles.
         </p>
+        <WritingPreferences
+          settings={settings}
+          update={update}
+          disabled={Boolean(detectionActive)}
+        />
         <div className="style-example">
           <strong>
             Style example · {exampleStyle} · {strength.name}
           </strong>
           <small>Illustrative result. Exact AI wording may vary.</small>
+          <small>
+            This example uses default preferences. Your saved preferences apply
+            to real dictation.
+          </small>
           <span>YOU SAY</span>
           <p>{example.input}</p>
           <span>CRIDVOICE WRITES</span>
@@ -1107,8 +1117,12 @@ export function Styles({
               options={writingStyles}
             />
           </Field>
-          <Field label="Additional guidance · optional">
+          <Field
+            label="Extra guidance for this app · optional"
+            hint="Adds to your general writing preferences for this application."
+          >
             <input
+              aria-label="Extra guidance for this app · optional"
               value={prompt}
               onChange={(e) => {
                 draftVersion.current += 1;

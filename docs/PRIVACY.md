@@ -44,6 +44,8 @@ Generated code appears in CridVoice for review and is copied only when you choos
 
 ## Credentials and local model server
 
+Personal writing preferences and application-specific guidance are stored in local settings. Text cleanup sends them with the current take to the selected local cleanup model or text provider. They are ordinary preferences, separate from encrypted API-key storage. They are not sent to code/CLI cleanup requests or used to modify app settings from dictated text.
+
 API keys are encrypted with Windows DPAPI before storage in Windows Credential Manager. DPAPI is user-scoped, uses provider-specific entropy, and does not permit UI prompts. Only a versioned ciphertext record reaches the credential store; decrypted key buffers are temporary and explicitly wiped. Saved keys are never returned to the webview. Settings, logs, history, exports, and portable archives contain no raw keys. The private managed llama.cpp server listens only on `127.0.0.1` at an ephemeral port and requires a generated API key. The Python worker uses stdin/stdout, with no listening socket. Inference children belong to a Windows job configured to terminate them when the parent process closes. Keys, transcript text, and microphone buffers are not written to diagnostic logs by CridVoice.
 
 ## Diagnostics and live model status

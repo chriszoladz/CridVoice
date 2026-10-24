@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.20
+
+- Add optional personal writing preferences with a draft, explicit save and defaults control, applying across Text styles and rewrite strengths. Application guidance can refine the general preferences.
+- Preserve intentional slang, nicknames and forms of address by default, including in Balanced and Thorough. Personal guidance cannot override facts, uncertainty or intended meaning, and remains separate from code/CLI modes.
+- Keep examples explicitly illustrative rather than claiming they reflect arbitrary custom instructions. Document preference storage, routing and limits.
+
 ## 0.1.19
 
 - Replace the cramped header processing text with a compact settings button showing the configured local/provider routes, with accessible details and clear save feedback.

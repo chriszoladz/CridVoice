@@ -45,6 +45,7 @@ export interface Settings {
     providerId: string;
     style: string;
     rewriteStrength: RewriteStrength;
+    writingPreferences: string;
     outputMode: OutputMode;
     codeLanguage: string;
   };
@@ -184,6 +185,7 @@ export const defaultSettings: Settings = {
     providerId: "",
     style: "faithful",
     rewriteStrength: "balanced",
+    writingPreferences: "",
     outputMode: "text",
     codeLanguage: "",
   },

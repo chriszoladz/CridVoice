@@ -207,7 +207,7 @@ test("application rules and language choices can be picked, edited and saved whi
     .getByRole("combobox", { name: "Application style", exact: true })
     .selectOption("casual");
   await page
-    .getByRole("textbox", { name: "Additional guidance · optional" })
+    .getByRole("textbox", { name: "Extra guidance for this app · optional" })
     .fill("Use short paragraphs.");
   await page
     .getByRole("button", { name: "Add application rule", exact: true })
@@ -220,7 +220,7 @@ test("application rules and language choices can be picked, edited and saved whi
     page.getByRole("combobox", { name: "Application", exact: true }),
   ).toHaveValue("app:outlook");
   await expect(
-    page.getByRole("textbox", { name: "Additional guidance · optional" }),
+    page.getByRole("textbox", { name: "Extra guidance for this app · optional" }),
   ).toHaveValue("Use short paragraphs.");
   await page
     .getByRole("combobox", { name: "Application style", exact: true })

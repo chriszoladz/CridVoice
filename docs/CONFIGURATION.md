@@ -16,6 +16,7 @@ Settings are serialized as camelCase JSON. Edit through the app; stop it before 
 | `cleanup.providerId` | empty | Selected text connection UUID |
 | `cleanup.style` | `faithful` | Faithful, professional, casual, concise, or code |
 | `cleanup.rewriteStrength` | `balanced` | Text editing amount: `light` for grammar/minimal wording, `balanced` for clearer phrasing, or `thorough` for organizing longer thoughts; meaning and facts remain constraints at every level |
+| `cleanup.writingPreferences` | empty | Optional personal tone, wording and formatting guidance for Text cleanup, up to 2,000 characters; application guidance can refine it while meaning and facts remain constraints |
 | `cleanup.outputMode` | `text` | `text` for prose, `code` for literal code/CLI dictation, or `generate` for code from spoken instructions |
 | `cleanup.codeLanguage` | empty / Auto | Optional freeform language/shell override; at most 80 characters on one line |
 | `providers` | `[]` | Connection records; see below |

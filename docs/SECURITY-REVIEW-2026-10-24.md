@@ -24,6 +24,10 @@ The managed cleanup server binds to loopback with a fresh authentication key; sp
 
 ## Remaining advisory scope
 
+The 0.1.20 personalization change adds one optional writing-preference string, validated to 2,000 Unicode characters. Saved global and matching application guidance are explicitly identified as wording, tone and format instructions in Text requests. Source transcripts, quoted text, context and vocabulary remain separate data. Meaning, facts, uncertainty and current-take isolation remain higher-priority constraints. Code/CLI routing returns before these prose preferences are assembled. No tool execution, new network endpoint, extra model call or credential access is introduced. As with other model instructions, these boundaries guide output; tests cannot prove complete model compliance.
+
+With active personal guidance, final Text formatting leaves the model's quotes and paragraph structure intact rather than interpreting natural-language formatting preferences a second time. Default formatting heuristics remain active without personal or matching application guidance. This avoids overriding a deliberate single-paragraph or quotation request; it does not guarantee that every free-form preference will be followed.
+
 An official RustSec database snapshot was compared locally with locked package names, then relevant version/platform/API conditions were reviewed. `cargo-audit` was not installed, so this was not a full cargo-audit run.
 
 * The new `zip` extraction advisories ([0367](https://rustsec.org/advisories/RUSTSEC-2026-0367.html), [0368](https://rustsec.org/advisories/RUSTSEC-2026-0368.html), [0369](https://rustsec.org/advisories/RUSTSEC-2026-0369.html)) concern the library's extraction/symlink/Unix-permission paths. CridVoice uses its own checked file-copy extractor on Windows, rejects symlinks, and calls neither affected extract API. A disruptive zip 9 upgrade was not used to clear an unreachable warning.

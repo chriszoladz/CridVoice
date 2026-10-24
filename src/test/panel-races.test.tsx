@@ -163,7 +163,7 @@ describe("Pending panel mutations", () => {
     fireEvent.change(screen.getByLabelText("Application"), {
       target: { value: "app:notepad" },
     });
-    fireEvent.change(screen.getByLabelText("Additional guidance · optional"), {
+    fireEvent.change(screen.getByLabelText("Extra guidance for this app · optional"), {
       target: { value: "Preserve paragraphs" },
     });
     const form = screen
@@ -174,7 +174,7 @@ describe("Pending panel mutations", () => {
     expect(changes.update).toHaveBeenCalledOnce();
     await act(async () => gate.reject(new Error("Synthetic save failure")));
     expect(screen.getByLabelText("Application")).toHaveValue("app:notepad");
-    expect(screen.getByLabelText("Additional guidance · optional")).toHaveValue(
+    expect(screen.getByLabelText("Extra guidance for this app · optional")).toHaveValue(
       "Preserve paragraphs",
     );
     expect(panel.notify).toHaveBeenCalledWith(
@@ -204,7 +204,7 @@ describe("Pending panel mutations", () => {
     fireEvent.change(screen.getByLabelText("Application"), {
       target: { value: "app:outlook" },
     });
-    fireEvent.change(screen.getByLabelText("Additional guidance · optional"), {
+    fireEvent.change(screen.getByLabelText("Extra guidance for this app · optional"), {
       target: { value: "Next rule" },
     });
     await act(async () => gate.resolve());
@@ -213,7 +213,7 @@ describe("Pending panel mutations", () => {
       "notepad",
     ]);
     expect(screen.getByLabelText("Application")).toHaveValue("app:outlook");
-    expect(screen.getByLabelText("Additional guidance · optional")).toHaveValue(
+    expect(screen.getByLabelText("Extra guidance for this app · optional")).toHaveValue(
       "Next rule",
     );
   });
