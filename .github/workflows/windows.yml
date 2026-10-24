@@ -1,0 +1,54 @@
+name: Windows validation and artifacts
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  windows:
+    runs-on: windows-2022
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Package verified Python runtime
+        run: python scripts/package_python.py --locked
+      - name: Check packaged runtime imports
+        shell: pwsh
+        run: |
+          & .\src-tauri\resources\python\python.exe -c "import numpy, ctranslate2, faster_whisper, av, onnxruntime; print('Windows inference imports passed')"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Frontend build and tests
+        run: |
+          npm run build
+          npm test
+      - name: Speech boundary tests
+        run: |
+          python -m pip install numpy==2.2.6
+          python -m unittest discover -s tests -p "test_*.py"
+      - name: Rust tests
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
+      - name: Browser flows
+        run: |
+          npx playwright install chromium
+          npm run test:ui
+      - name: Build Windows installer
+        run: npm run tauri -- build --target x86_64-pc-windows-msvc --bundles nsis
+      - name: Package portable build
+        run: python scripts/package_portable.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CridVoice-windows-x64
+          path: |
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+            release/*.zip

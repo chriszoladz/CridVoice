@@ -1,0 +1,187 @@
+[
+  {
+    "id": "whisper-preview",
+    "name": "Whisper Tiny live preview",
+    "kind": "preview",
+    "description": "Optional multilingual CPU preview for English and Polish. Provisional text only; your selected speech model still performs final recognition.",
+    "license": "MIT",
+    "files": [
+      {
+        "name": "config.json",
+        "url": "https://huggingface.co/Systran/faster-whisper-tiny/resolve/d90ca5fe260221311c53c58e660288d3deb8d356/config.json",
+        "sha256": "a73a28cdfe1c43ccc7202fa333d1f89c202477271407ae9a7f19afa52039cac8",
+        "bytes": 2249
+      },
+      {
+        "name": "model.bin",
+        "url": "https://huggingface.co/Systran/faster-whisper-tiny/resolve/d90ca5fe260221311c53c58e660288d3deb8d356/model.bin",
+        "sha256": "dcb76c6586fc06cbdac6dd21f14cfd129cc4cdd9dce19bf4ffa62e59cbe6e6d1",
+        "bytes": 75538270
+      },
+      {
+        "name": "tokenizer.json",
+        "url": "https://huggingface.co/Systran/faster-whisper-tiny/resolve/d90ca5fe260221311c53c58e660288d3deb8d356/tokenizer.json",
+        "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab",
+        "bytes": 2203239
+      },
+      {
+        "name": "vocabulary.txt",
+        "url": "https://huggingface.co/Systran/faster-whisper-tiny/resolve/d90ca5fe260221311c53c58e660288d3deb8d356/vocabulary.txt",
+        "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913",
+        "bytes": 459861
+      }
+    ],
+    "sizeBytes": 78203619,
+    "installed": false
+  },
+  {
+    "id": "whisper-turbo",
+    "name": "Whisper Large v3 Turbo",
+    "kind": "speech",
+    "description": "Best balance for your NVIDIA GPU. Multilingual English and Polish.",
+    "license": "MIT",
+    "files": [
+      {
+        "name": "config.json",
+        "url": "https://huggingface.co/mobiuslabsgmbh/faster-whisper-large-v3-turbo/resolve/0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf/config.json",
+        "sha256": "b0253ea6c0d3bea6b1e19e91a02acfd3b53f4467362efcb5a3e6b16c9b3a9b7e",
+        "bytes": 2263
+      },
+      {
+        "name": "model.bin",
+        "url": "https://huggingface.co/mobiuslabsgmbh/faster-whisper-large-v3-turbo/resolve/0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf/model.bin",
+        "sha256": "e76620f83d5f5b69efd3d87e3dc180c1bd21df9fbebacfd4335e5e1efcc018da",
+        "bytes": 1617884929
+      },
+      {
+        "name": "preprocessor_config.json",
+        "url": "https://huggingface.co/mobiuslabsgmbh/faster-whisper-large-v3-turbo/resolve/0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf/preprocessor_config.json",
+        "sha256": "7ccc62c6f2765af1f3b46c00c9b5894426835a05021c8b9c01eecb6dfb542711",
+        "bytes": 340
+      },
+      {
+        "name": "tokenizer.json",
+        "url": "https://huggingface.co/mobiuslabsgmbh/faster-whisper-large-v3-turbo/resolve/0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf/tokenizer.json",
+        "sha256": "297b13372ac43916285644fb9687add3cc62ee2a1adb60da3dc25cc94c1871fd",
+        "bytes": 2710337
+      },
+      {
+        "name": "vocabulary.json",
+        "url": "https://huggingface.co/mobiuslabsgmbh/faster-whisper-large-v3-turbo/resolve/0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf/vocabulary.json",
+        "sha256": "c69260f2ab26d659b7c398f9a2b2b48ed0df16c3b47d7326782fd9cba71690c1",
+        "bytes": 1068114
+      }
+    ],
+    "sizeBytes": 1621665983,
+    "installed": false
+  },
+  {
+    "id": "whisper-small",
+    "name": "Whisper Small",
+    "kind": "speech",
+    "description": "Smaller multilingual model for Intel and AMD CPUs.",
+    "license": "MIT",
+    "files": [
+      {
+        "name": "config.json",
+        "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/config.json",
+        "sha256": "b55496ac7940a7ae47d2c01eab40edfd8701feec1229d9cce3b40014383fb828",
+        "bytes": 2370
+      },
+      {
+        "name": "model.bin",
+        "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/model.bin",
+        "sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671",
+        "bytes": 483546902
+      },
+      {
+        "name": "tokenizer.json",
+        "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/tokenizer.json",
+        "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab",
+        "bytes": 2203239
+      },
+      {
+        "name": "vocabulary.txt",
+        "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/vocabulary.txt",
+        "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913",
+        "bytes": 459861
+      }
+    ],
+    "sizeBytes": 486212372,
+    "installed": false
+  },
+  {
+    "id": "qwen3-4b",
+    "name": "Qwen3 4B \u00b7 Q4_K_M",
+    "kind": "cleanup",
+    "description": "Compact local editing model. Resolves corrections while preserving meaning.",
+    "license": "Apache-2.0",
+    "files": [
+      {
+        "name": "Qwen3-4B-Q4_K_M.gguf",
+        "url": "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/bc640142c66e1fdd12af0bd68f40445458f3869b/Qwen3-4B-Q4_K_M.gguf",
+        "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "bytes": 2497280256
+      }
+    ],
+    "sizeBytes": 2497280256,
+    "installed": false
+  },
+  {
+    "id": "llama-cpu",
+    "name": "llama.cpp \u00b7 CPU",
+    "kind": "runtime",
+    "description": "App-managed local language-model engine. GPU engine uses Vulkan.",
+    "license": "MIT",
+    "files": [
+      {
+        "name": "llama-b11559-bin-win-cpu-x64.zip",
+        "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11559/llama-b11559-bin-win-cpu-x64.zip",
+        "sha256": "1228f133868c02a424bcf663a688e66d8c7d5499077649f305188f756f584377",
+        "bytes": 19501338
+      }
+    ],
+    "sizeBytes": 19501338,
+    "installed": false
+  },
+  {
+    "id": "llama-gpu",
+    "name": "llama.cpp \u00b7 NVIDIA GPU",
+    "kind": "runtime",
+    "description": "App-managed local language-model engine. GPU engine uses Vulkan.",
+    "license": "MIT",
+    "files": [
+      {
+        "name": "llama-b11559-bin-win-vulkan-x64.zip",
+        "url": "https://github.com/ggml-org/llama.cpp/releases/download/b11559/llama-b11559-bin-win-vulkan-x64.zip",
+        "sha256": "bf2fb2a7fc5d7669ccabbb6de3f6dd6b54058f213b32e731abc62b590f8566dc",
+        "bytes": 32084119
+      }
+    ],
+    "sizeBytes": 32084119,
+    "installed": false
+  },
+  {
+    "id": "nvidia-runtime",
+    "name": "NVIDIA speech runtime",
+    "kind": "runtime",
+    "description": "cuBLAS 12.9 and cuDNN 9 libraries for GPU speech recognition, including RTX 50 series. CPU does not need this.",
+    "license": "NVIDIA redistributable EULA",
+    "files": [
+      {
+        "name": "nvidia_cublas_cu12-12.9.2.10-py3-none-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/20/e2/fc9a0e985249d873150276d5afb02e39a66817fedbf1a385724393e505ed/nvidia_cublas_cu12-12.9.2.10-py3-none-win_amd64.whl",
+        "sha256": "623f43027d40d44ceadf0043f002bd25cf353e8f13ce90b9a87057019f560661",
+        "bytes": 553162896
+      },
+      {
+        "name": "nvidia_cudnn_cu12-9.27.0.42-py3-none-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/aa/38/f856579877f7c1c5066e61182e7de7bc27bf35a78c8d1b0fa592e6985bc4/nvidia_cudnn_cu12-9.27.0.42-py3-none-win_amd64.whl",
+        "sha256": "06e9b0026f3bad97d2b58666330fabec04fe1672f776661ecb0ce0029c27f142",
+        "bytes": 743068852
+      }
+    ],
+    "sizeBytes": 1296231748,
+    "installed": false
+  }
+]

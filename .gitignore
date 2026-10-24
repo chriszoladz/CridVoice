@@ -1,0 +1,17 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+*.tsbuildinfo
+src-tauri/resources/python/
+src-tauri/resources/wheels/
+release/
+test-results/
+playwright-report/
+__pycache__/
+.pytest_cache/
+.venv/
+*.part
+*.log
+.env*
+!.env.example
