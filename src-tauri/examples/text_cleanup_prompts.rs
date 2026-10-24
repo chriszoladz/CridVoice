@@ -112,6 +112,7 @@ fn main() {
         r"(?i)\baudio test\b",
         r"(?i)\bquiet room\b",
         r"(?i)\bmusic\b",
+        r"(?is)\bquiet room\b.{0,100}\b(?:and|then|followed by)\b.{0,100}\bmusic\b|\b(?:two|2|both|separate)\b.{0,40}\b(?:tests|conditions|settings|environments)\b",
         r"(?i)\bsame sentence\b",
         r"(?i)(?:\$\s*80|\b80\s*dollars?\b|\beighty dollars?\b)",
         r"(?i)\bFriday\b",
