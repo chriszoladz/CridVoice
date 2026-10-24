@@ -1,5 +1,19 @@
 # Troubleshooting
 
+## Speech is in History but did not insert
+
+The transcript is saved before insertion, so a saved result does not prove the target field accepted it. Copy the result from History if needed.
+
+CridVoice 0.1.16 rechecks a transient missing/different accessibility node for up to five samples, spaced 20 ms apart, accepting only the original window and field. Stable focus adds no wait. A real window change or password field stops immediately. It never forces another window into focus or replays input after a partial paste/type.
+
+The message distinguishes a changed window, a different field and a field Windows could not identify. Keep the original field focused until insertion completes. If an app does not expose a verifiable input field through Windows accessibility, Copy remains available. For administrator apps, CridVoice needs compatible elevation; running normal applications normally is preferable.
+
+## Lower background audio
+
+**Settings → Speech recognition → Lower background audio while speaking** is off by default. It reduces other apps' per-session playback volumes by 25% on currently active output devices and restores them after stop/cancel, recording errors, or normal exit. It leaves the system volume, mute state, microphone and system-sound session alone. Manual session-volume adjustments during a take are retained.
+
+Windows audio support varies: exclusive-mode playback and devices connected after recording starts may not expose an adjustable session. An abrupt process termination or power loss cannot run normal restoration; use Windows Volume mixer if needed. This is playback reduction, not microphone noise removal. It adds no model or download.
+
 ## Navigation labels are hidden
 
 Choose **Expand sidebar** to restore page labels. Collapsed navigation keeps its icons: hover or keyboard-focus an icon to see its name, or use **Ctrl + K** to find a page. The collapse preference is remembered without changing your processing settings.

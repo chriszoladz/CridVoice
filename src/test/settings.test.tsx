@@ -52,6 +52,46 @@ function panel(
 }
 
 describe("Persisted settings", () => {
+  it("keeps background audio reduction optional and merges with the latest microphone setting", () => {
+    const settings = structuredClone(defaultSettings);
+    expect(settings.general.duckBackgroundAudio).toBe(false);
+    const update = vi.fn(async (_patch: SettingsUpdate) => {});
+    const view = render(panel(settings, update));
+    const toggle = screen.getByRole("switch", {
+      name: "Lower background audio while speaking",
+    });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(toggle);
+    const patch = update.mock.calls[0][0];
+    const latest = structuredClone(settings);
+    latest.general.microphone = "USB microphone";
+    expect(
+      typeof patch === "function" ? patch(latest).general : undefined,
+    ).toEqual({
+      ...latest.general,
+      duckBackgroundAudio: true,
+    });
+    view.rerender(
+      panel(
+        {
+          ...settings,
+          general: { ...settings.general, duckBackgroundAudio: true },
+        },
+        update,
+      ),
+    );
+    fireEvent.click(
+      screen.getByRole("switch", {
+        name: "Lower background audio while speaking",
+      }),
+    );
+    const disable = update.mock.calls[1][0];
+    expect(
+      typeof disable === "function"
+        ? disable(latest).general?.duckBackgroundAudio
+        : undefined,
+    ).toBe(false);
+  });
   it("turns coding off with cleanup without losing the latest override or unrelated cleanup settings", () => {
     const settings = structuredClone(defaultSettings);
     settings.cleanup.outputMode = "generate";

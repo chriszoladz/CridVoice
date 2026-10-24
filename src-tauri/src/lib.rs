@@ -14,6 +14,8 @@ mod diagnostics;
 mod discovery;
 #[cfg(windows)]
 mod downloads;
+#[cfg(any(windows, test))]
+mod ducking;
 #[cfg(windows)]
 mod inference;
 #[cfg(any(windows, test))]

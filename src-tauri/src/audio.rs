@@ -15,6 +15,7 @@ pub fn devices() -> Result<Vec<String>, String> {
         .collect()
 }
 pub struct Recorder {
+    ducking: Option<crate::ducking::RecordingDucking>,
     failure: Arc<Mutex<Option<String>>>,
     samples: Arc<Mutex<Vec<f32>>>,
     rate: u32,
@@ -27,6 +28,32 @@ pub struct AudioSnapshot {
     samples: Vec<f32>,
     rate: u32,
     start_sample: usize,
+}
+fn receive_samples<T: Copy>(
+    data: &[T],
+    channels: usize,
+    limit: usize,
+    samples: &Mutex<Vec<f32>>,
+    level: &AtomicU32,
+    normalize: impl Fn(T) -> f32,
+) {
+    let mut buf = samples.lock().unwrap();
+    let mut square = 0.;
+    let mut count = 0;
+    for frame in data.chunks(channels) {
+        let value = frame.iter().copied().map(&normalize).sum::<f32>() / channels as f32;
+        square += value * value;
+        count += 1;
+        if buf.len() < limit {
+            buf.push(value)
+        }
+    }
+    let rms = if count > 0 {
+        (square / count as f32).sqrt()
+    } else {
+        0.
+    };
+    level.store((rms.min(1.) * 10000.) as u32, Ordering::Relaxed);
 }
 impl Recorder {
     pub fn start(name: &str, max_seconds: u32) -> Result<Self, String> {
@@ -49,40 +76,24 @@ impl Recorder {
                 let rate = config.sample_rate.0;
                 let channels = config.channels as usize;
                 let limit = rate as usize * max_seconds as usize;
-                let receive = move |data: &[f32]| {
-                    let mut buf = ss.lock().unwrap();
-                    let mut square = 0.;
-                    let mut count = 0;
-                    for frame in data.chunks(channels) {
-                        let value = frame.iter().sum::<f32>() / channels as f32;
-                        square += value * value;
-                        count += 1;
-                        if buf.len() < limit {
-                            buf.push(value)
-                        }
-                    }
-                    let rms = if count > 0 {
-                        (square / count as f32).sqrt()
-                    } else {
-                        0.
-                    };
-                    ll.store((rms.min(1.) * 10000.) as u32, Ordering::Relaxed);
-                };
                 let err = move |e: cpal::StreamError| {
                     *ff.lock().unwrap() = Some(e.to_string());
                 };
                 let stream = match format {
                     cpal::SampleFormat::F32 => device.build_input_stream(
                         &config,
-                        move |d: &[f32], _| receive(d),
+                        move |d: &[f32], _| {
+                            receive_samples(d, channels, limit, &ss, &ll, |sample| sample)
+                        },
                         err,
                         None,
                     ),
                     cpal::SampleFormat::I16 => device.build_input_stream(
                         &config,
                         move |d: &[i16], _| {
-                            let f: Vec<f32> = d.iter().map(|x| *x as f32 / 32768.).collect();
-                            receive(&f)
+                            receive_samples(d, channels, limit, &ss, &ll, |sample| {
+                                sample as f32 / 32768.
+                            })
                         },
                         err,
                         None,
@@ -90,9 +101,9 @@ impl Recorder {
                     cpal::SampleFormat::U16 => device.build_input_stream(
                         &config,
                         move |d: &[u16], _| {
-                            let f: Vec<f32> =
-                                d.iter().map(|x| (*x as f32 - 32768.) / 32768.).collect();
-                            receive(&f)
+                            receive_samples(d, channels, limit, &ss, &ll, |sample| {
+                                (sample as f32 - 32768.) / 32768.
+                            })
                         },
                         err,
                         None,
@@ -121,6 +132,7 @@ impl Recorder {
             .recv_timeout(std::time::Duration::from_secs(10))
             .map_err(|_| "Microphone did not initialize.".to_string())??;
         Ok(Self {
+            ducking: None,
             failure,
             samples,
             rate,
@@ -137,7 +149,13 @@ impl Recorder {
         self.failure.lock().unwrap().clone()
     }
     pub fn request_stop(&self) {
+        if let Some(ducking) = &self.ducking {
+            ducking.finish();
+        }
         let _ = self.stop.send(());
+    }
+    pub fn lower_background_audio(&mut self) {
+        self.ducking = crate::ducking::RecordingDucking::start();
     }
     pub fn stop_capture(&mut self) -> f64 {
         let duration = self.elapsed();
@@ -229,6 +247,68 @@ impl Drop for Recorder {
 mod tests {
     use super::*;
 
+    fn assert_input_matches_normalized(
+        expected: &[f32],
+        receive: impl Fn(&Mutex<Vec<f32>>, &AtomicU32, usize, usize),
+    ) {
+        for channels in [1, 2, 3] {
+            for limit in [0, 1, expected.len()] {
+                let reference = Mutex::new(Vec::new());
+                let reference_level = AtomicU32::new(0);
+                receive_samples(
+                    expected,
+                    channels,
+                    limit,
+                    &reference,
+                    &reference_level,
+                    |sample| sample,
+                );
+                let actual = Mutex::new(Vec::new());
+                let actual_level = AtomicU32::new(0);
+                receive(&actual, &actual_level, channels, limit);
+                assert_eq!(*actual.lock().unwrap(), *reference.lock().unwrap());
+                assert_eq!(
+                    actual_level.load(Ordering::Relaxed),
+                    reference_level.load(Ordering::Relaxed)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn integer_input_normalizes_without_intermediate_buffers() {
+        let signed = [i16::MIN, -12345, -1, 0, 1, 12345, i16::MAX];
+        let normalized = signed.map(|sample| sample as f32 / 32768.);
+        assert_input_matches_normalized(&normalized, |samples, level, channels, limit| {
+            receive_samples(&signed, channels, limit, samples, level, |sample| {
+                sample as f32 / 32768.
+            });
+        });
+
+        let unsigned = [0u16, 12345, 32767, 32768, 32769, 54321, u16::MAX];
+        let normalized = unsigned.map(|sample| (sample as f32 - 32768.) / 32768.);
+        assert_input_matches_normalized(&normalized, |samples, level, channels, limit| {
+            receive_samples(&unsigned, channels, limit, samples, level, |sample| {
+                (sample as f32 - 32768.) / 32768.
+            });
+        });
+    }
+
+    #[test]
+    fn input_preserves_channel_average_recording_limit_and_level_after_limit() {
+        let samples = Mutex::new(Vec::new());
+        let level = AtomicU32::new(0);
+        receive_samples(&[0.5f32, -0.5, 0.75, 0.25], 2, 1, &samples, &level, |v| v);
+        assert_eq!(*samples.lock().unwrap(), vec![0.]);
+        assert_eq!(level.load(Ordering::Relaxed), 3535);
+        receive_samples(&[1f32, 1.], 2, 1, &samples, &level, |v| v);
+        assert_eq!(*samples.lock().unwrap(), vec![0.]);
+        assert_eq!(level.load(Ordering::Relaxed), 10000);
+        receive_samples::<f32>(&[], 2, 1, &samples, &level, |v| v);
+        assert_eq!(*samples.lock().unwrap(), vec![0.]);
+        assert_eq!(level.load(Ordering::Relaxed), 0);
+    }
+
     fn fixture(rate: u32) -> Recorder {
         let pattern = [
             0., 0.25, 0.5, 0.75, 1., 0.75, 0.5, 0.25, 0., -0.25, -0.5, -0.75, -1., -0.75, -0.5,
@@ -236,6 +316,7 @@ mod tests {
         ];
         let (stop, _) = mpsc::channel();
         Recorder {
+            ducking: None,
             samples: Arc::new(Mutex::new(pattern.repeat(2))),
             rate,
             failure: Arc::new(Mutex::new(None)),

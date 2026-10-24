@@ -502,6 +502,55 @@ it("updates dictation readiness after a completed download without remounting", 
   );
 });
 
+it("does not rebuild saved history rows for audio events and still displays fresh history", async () => {
+  const readDate = vi.fn(() => "2026-10-24T12:00:00Z");
+  snapshot.history = Array.from({ length: 80 }, (_, index) => ({
+    id: String(index),
+    get createdAt() {
+      return readDate();
+    },
+    rawText: `Synthetic speech ${index}`,
+    text: `Saved transcript ${index}`,
+    language: "en",
+    app: "Test editor",
+    durationSeconds: 2,
+    wordCount: 3,
+    mode: "local",
+    inserted: true,
+  }));
+  // Preserve payload identity so accessor reads measure rendering, not cloning.
+  bridge.getSnapshot.mockImplementation(async () => snapshot);
+  render(<App />);
+  fireEvent.click(await screen.findByRole("button", { name: "History" }));
+  expect(
+    screen.getAllByRole("button", { name: /^Saved transcript / }),
+  ).toHaveLength(80);
+  const initialReads = readDate.mock.calls.length;
+  for (const level of [0.1, 0.5, 0.8]) {
+    await act(async () =>
+      onSession({ ...emptySession, status: "recording", level }),
+    );
+  }
+  expect(readDate).toHaveBeenCalledTimes(initialReads);
+  fireEvent.change(screen.getByRole("textbox", { name: "Search history" }), {
+    target: { value: "transcript 79" },
+  });
+  expect(
+    screen.getAllByRole("button", { name: /^Saved transcript / }),
+  ).toHaveLength(1);
+  snapshot = {
+    ...snapshot,
+    history: [{ ...snapshot.history[79], text: "Updated transcript 79" }],
+  };
+  await act(async () => onState());
+  expect(
+    screen.getByRole("button", { name: "Updated transcript 79" }),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "Saved transcript 79" }),
+  ).toBeNull();
+});
+
 it("shows loading, loaded and unloaded memory state from backend events", async () => {
   render(<App />);
   await waitFor(() =>

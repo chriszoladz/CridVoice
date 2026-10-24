@@ -1,6 +1,16 @@
 # Validation report
 
-## Current 0.1.15 configuration controls
+## Current 0.1.16 insertion, background audio and performance
+
+Version 0.1.16 addresses transient Windows accessibility focus reads before automatic insertion. Bounded retries accept only the original input identity; window/password/cancellation checks, clipboard publication ownership and no replay after dispatch remain required. Missing original field identity is not accepted as a wildcard. Error messages distinguish unavailable fields and actual focus changes without collecting target contents.
+
+The optional playback reduction setting defaults off, attenuates other app sessions during recording, and queues conditional restoration when the recording ends. Normal shutdown has a bounded restoration wait. Policy/lifecycle tests do not establish behavior with every audio driver or exclusive-mode player.
+
+History no longer rebuilds unchanged rows for frequent recording events. Integer microphone formats avoid an intermediate conversion allocation; equivalence tests cover channel averaging, sample extrema, caps and RMS. This changes neither the selected final model nor its decoding settings. No speech-accuracy or end-to-end latency improvement is inferred from these code changes.
+
+Matching external 0.1.16 verification records actual automated, package and installed checks. Physical shortcuts, real microphone/target-app insertion and audible volume behavior require a separate acceptance pass. Earlier results below retain their original scope.
+
+## Historical 0.1.15 configuration controls
 
 CridVoice 0.1.15 adds deliberate shortcut capture with conflict checks, Cancel/Escape, a 30-second incomplete-capture limit, and default restoration. Common language/shell choices retain the same optional custom hint. Application rules offer common/recent/running/custom names and editing. Settings loads microphone choices when opened, preserves a disconnected saved choice, and adds section jumps and search keywords.
 

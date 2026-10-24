@@ -38,6 +38,7 @@ There is no hosted CridVoice backend. Rust is the local application backend. Rea
 | `src-tauri/src/discovery.rs` | Bounded provider model listing and visible-window process basenames |
 | `src-tauri/src/clipboard.rs` | Owned clipboard backup, temporary paste, privacy markers, restoration |
 | `src-tauri/src/audio.rs` | Microphone worker, PCM buffers, resampling, WAV snapshots |
+| `src-tauri/src/ducking.rs` | Optional recording-scoped playback reduction and restoration on a dedicated COM worker |
 | `src-tauri/src/inference.rs` | Speech RPC, managed LLM startup, cloud speech, credentials |
 | `src-tauri/src/warmup.rs` | Selected local model routes and cancellable background preparation tickets |
 | `src-tauri/src/diagnostics.rs` | Concurrent child-pipe draining and fixed diagnostic categories |
@@ -51,6 +52,10 @@ There is no hosted CridVoice backend. Rust is the local application backend. Rea
 | `src-tauri/resources/service/speech.py` | Python speech worker, GPU DLL search, offline models |
 
 ## Recording and state
+
+When `general.duckBackgroundAudio` is enabled, a recorder-owned guard queues per-session playback reduction on a dedicated Windows MTA thread. Stop/cancel/Drop invalidates the take token and queues restoration without waiting in the final-recognition path. Session-created notifications discover new sessions on the existing active outputs; there is no polling loop. Sessions belonging to CridVoice and system sounds are excluded. The guard restores only an unchanged scalar that it applied, and volume-change notifications retain user adjustments. Normal tray exit allows a bounded restoration wait.
+
+History's inner view is memoized separately from session/audio events. Filtering is cached by history, language and query; an empty query skips transcript-string normalization. Integer-format microphone callbacks convert samples while downmixing rather than allocating an intermediate normalized buffer. The final resampler and recognition settings are unchanged.
 
 Background local-model preparation uses a separate warm-up epoch from recording sessions. Final speech, CPU preview, and cleanup prepare behind their individual engine locks, using only installed selected app-managed routes. Queued work rechecks its ticket before starting; route changes, explicit unload, maintenance, and shutdown invalidate stale preparation. Warm-up does not capture audio or application context, use history or provider credentials, or make external-provider calls. Its engine-status events leave the recording session idle and keep recording available.
 

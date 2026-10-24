@@ -542,7 +542,7 @@ pub fn paste(
         owner.0 as usize,
         expected,
         active,
-        |_| crate::native::validate_insertion_target(target, &crate::native::context(false)),
+        |_| crate::native::validate_current_insertion_target(target, active),
         || unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) },
     )?;
     std::thread::sleep(std::time::Duration::from_millis(250));

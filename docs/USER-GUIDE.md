@@ -62,6 +62,12 @@ With local speech and live preview enabled, setup/repair includes Whisper Tiny, 
 
 The popup's fixed two-line area follows the newest words. Overview follows updates while you are near the bottom; scrolling back keeps your reading position until you return near the bottom. The full current preview remains accessible without a live announcement for every partial word. A preview-only failure can show **Preview unavailable. Release to transcribe.** while final recognition remains available. You can turn live preview off in Appearance without changing the selected final speech model.
 
+## Lower background audio
+
+In **Settings → Speech recognition**, turn on **Lower background audio while speaking** to reduce other apps' playback by 25% during recording. It is off by default. The volume returns when you stop or cancel, before final recognition and cleanup. Volume changes you make while recording are kept.
+
+This lowers computer playback such as music or a video. It does not remove room noise from the microphone recording. See Troubleshooting for supported playback devices and restoration behavior.
+
 ## Speaking naturally
 
 Cleanup resolves corrections such as:

@@ -78,9 +78,13 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib
 
 ## Release status
 
-CridVoice 0.1.15 adds press-to-record shortcut editing, common language/shell choices with a custom fallback, application-rule choices and editing, and explicit provider model discovery. Settings refreshes microphones automatically, retains a saved disconnected choice, and offers section jumps; page search also understands terms such as microphone and hotkey. The 0.1.14 shortcut-state, current-take cleanup isolation, and clipboard protections are retained.
+CridVoice 0.1.16 rechecks transient Windows accessibility focus before insertion, accepting only the original window and field. Stable focus adds no intentional delay. Input failures distinguish window changes, field changes and unavailable field identity; no input is replayed after dispatch. Settings adds optional 25% reduction of other apps' playback during recording, with restoration when the take ends. It defaults off and requires no downloads.
 
-Provider **Fetch models** uses the configured draft endpoint and returns model IDs without inferring text or speech support. It does not run a model or save a draft API key. Application choices use common/recent names and a bounded list of visible-window process names, with no titles, paths, or command lines. Final 0.1.15 automated counts, build/install results, and scoped user acceptance are pending matching release verification. Earlier results below retain their original versions.
+History avoids rebuilding unchanged rows during live audio updates, and integer-format microphones avoid an intermediate conversion buffer per callback. The final model, decoder, clipboard ownership, password exclusion and current-take isolation are preserved. Matching external 0.1.16 verification records executed checks, build/install results and scoped human acceptance. Earlier results below retain their original versions.
+
+### Historical 0.1.15 settings polish
+
+Version 0.1.15 added press-to-set shortcut capture, common/custom language and app pickers, explicit provider model discovery and automatic microphone discovery. The user confirmed capture worked without starting a recording. Provider discovery lists IDs without inferring model capabilities, running a model or saving a draft API key. These controls remain available in 0.1.16.
 
 ### Historical 0.1.14 shortcut and dictation isolation
 

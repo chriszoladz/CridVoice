@@ -383,7 +383,10 @@ async fn start(
     *state.target.lock().unwrap() = context.clone();
     state.rewrite.store(rewrite, Ordering::Relaxed);
     state.insert.store(insert, Ordering::Relaxed);
-    let recorder = Recorder::start(&s.general.microphone, s.general.max_recording_seconds)?;
+    let mut recorder = Recorder::start(&s.general.microphone, s.general.max_recording_seconds)?;
+    if s.general.duck_background_audio {
+        recorder.lower_background_audio();
+    }
     let recording_started = Instant::now();
     let level = recorder.level.clone();
     *state.recorder.lock().unwrap() = Some(recorder);
@@ -1315,7 +1318,7 @@ pub fn run() {
   let overlay=WebviewWindowBuilder::new(app,"overlay",WebviewUrl::App("index.html?overlay=1".into())).title("CridVoice recording").inner_size(OVERLAY_WIDTH,OVERLAY_HEIGHT).decorations(false).resizable(false).shadow(false).transparent(true).always_on_top(true).skip_taskbar(true).visible(false).focused(false).focusable(false).build()?;
   let _=overlay.set_ignore_cursor_events(true);if let Some(monitor)=app.primary_monitor()?{let area=monitor.work_area();let (position,size)=overlay_bounds((area.position.x,area.position.y),(area.size.width,area.size.height),monitor.scale_factor());let _=overlay.set_position(position);let _=overlay.set_size(size);}
   use tauri::{menu::{Menu,MenuItem},tray::TrayIconBuilder};let show=MenuItem::with_id(app,"show","Open CridVoice",true,None::<&str>)?;let dictate=MenuItem::with_id(app,"dictate","Toggle dictation",true,None::<&str>)?;let quit=MenuItem::with_id(app,"quit","Quit CridVoice",true,None::<&str>)?;let menu=Menu::with_items(app,&[&show,&dictate,&quit])?;
-  TrayIconBuilder::new().icon(app.default_window_icon().unwrap().clone()).tooltip("CridVoice · Ctrl + Windows to dictate").menu(&menu).on_menu_event(|app,event|match event.id.as_ref(){"show"=>{if let Some(w)=app.get_webview_window("main"){let _=w.show();let _=w.set_focus();}},"dictate"=>dispatch(app.clone(),"toggle",false,true),"quit"=>{let handle=app.clone();tauri::async_runtime::spawn(async move{let state=handle.state::<State>();state.inference.warmup.close();cancel(&handle).await;state.inference.shutdown(&handle).await;handle.exit(0);});},_=>{}}).build(app)?;
+  TrayIconBuilder::new().icon(app.default_window_icon().unwrap().clone()).tooltip("CridVoice · Ctrl + Windows to dictate").menu(&menu).on_menu_event(|app,event|match event.id.as_ref(){"show"=>{if let Some(w)=app.get_webview_window("main"){let _=w.show();let _=w.set_focus();}},"dictate"=>dispatch(app.clone(),"toggle",false,true),"quit"=>{let handle=app.clone();tauri::async_runtime::spawn(async move{let state=handle.state::<State>();state.inference.warmup.close();cancel(&handle).await;let _=tauri::async_runtime::spawn_blocking(crate::ducking::shutdown).await;state.inference.shutdown(&handle).await;handle.exit(0);});},_=>{}}).build(app)?;
   native::install_shortcuts(app.handle()).map_err(std::io::Error::other)?;if std::env::args().any(|a|a=="--background"){if let Some(w)=app.get_webview_window("main"){let _=w.hide();}}let warm_app=app.handle().clone();let mut initial_warm=app.state::<State>().inference.warmup.snapshot();tauri::async_runtime::spawn(async move{let state=warm_app.state::<State>();if let Some(_guard)=initial_warm.lock_current(&state.lifecycle).await {let _=queue_warm_locked(&warm_app,&state,false);};});Ok(())
  }).on_window_event(|window,event|{if window.label()=="main"{match event{tauri::WindowEvent::CloseRequested{api,..}=>{if let Some(event)=native::cancel_shortcut_capture(false){let _=window.emit_to("main","shortcut-capture",event);}api.prevent_close();let _=window.hide();},tauri::WindowEvent::Focused(false)=>{if let Some(event)=native::cancel_shortcut_capture(true){let _=window.emit_to("main","shortcut-capture",event);}},_=>{}}}}).run(tauri::generate_context!());
     if let Err(e) = result {

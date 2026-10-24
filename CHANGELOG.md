@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.16
+
+- Recheck transient accessibility focus reads before insertion, accepting only the original window and input field. Distinguish window changes, field changes and unavailable fields without retaining target text or window titles.
+- Add an optional **Lower background audio while speaking** switch in Speech recognition. Other apps' audio is reduced during recording and restored when recording ends; manual volume changes are preserved.
+- Avoid rebuilding unchanged History rows for live recording updates and avoid temporary normalization buffers for integer-format microphone input.
+- Preserve current-take isolation, modifier/cancellation checks, password exclusion, clipboard ownership and single-dispatch insertion. See matching release verification for executed checks and installed/user acceptance.
+
 ## 0.1.15
 
 - Capture shortcuts by pressing and releasing the chord, with conflict checks, Cancel/Escape, a bounded listening timeout, and reset-to-default actions.

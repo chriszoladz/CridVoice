@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   Cloud,
@@ -1473,6 +1473,16 @@ export function SettingsPanel({
                 Windows default microphone.
               </p>
             )}
+          <Toggle
+            label="Lower background audio while speaking"
+            description="Temporarily lower other apps by 25% while recording, then restore their volume when you stop. Volume changes you make while speaking are kept."
+            checked={s.general.duckBackgroundAudio}
+            onChange={(v) =>
+              change((current) => ({
+                general: { ...current.general, duckBackgroundAudio: v },
+              }))
+            }
+          />
           {s.transcription.mode === "openai" && s.appearance.livePreview && (
             <p className="helper">
               Live preview can make multiple audio requests to your selected
@@ -1722,17 +1732,41 @@ export function SettingsPanel({
   );
 }
 export function History({ snapshot, refresh, notify }: PanelProps) {
+  return (
+    <HistoryContent
+      history={snapshot.history}
+      refresh={refresh}
+      notify={notify}
+    />
+  );
+}
+// Audio levels and provisional speech update App frequently. Keep those events
+// from rebuilding every saved transcript while this page is open.
+const HistoryContent = memo(function HistoryContent({
+  history,
+  refresh,
+  notify,
+}: {
+  history: Snapshot["history"];
+  refresh: PanelProps["refresh"];
+  notify: PanelProps["notify"];
+}) {
   const [search, setSearch] = useState(""),
     [language, setLanguage] = useState("all"),
     [confirm, setConfirm] = useState(false),
     [selected, setSelected] = useState<string | null>(null);
   const query = search.toLowerCase();
-  const filtered = snapshot.history.filter(
-    (h) =>
-      (language === "all" || h.language === language) &&
-      `${h.text} ${h.rawText} ${h.app}`.toLowerCase().includes(query),
+  const filtered = useMemo(
+    () =>
+      history.filter(
+        (h) =>
+          (language === "all" || h.language === language) &&
+          (!query ||
+            `${h.text} ${h.rawText} ${h.app}`.toLowerCase().includes(query)),
+      ),
+    [history, language, query],
   );
-  const entry = snapshot.history.find((h) => h.id === selected);
+  const entry = selected ? history.find((h) => h.id === selected) : undefined;
   const technical = (mode: string) =>
     ["code", "code-rewrite", "generate"].includes(mode);
   const rawTechnical = (mode: string) =>
@@ -1798,7 +1832,7 @@ export function History({ snapshot, refresh, notify }: PanelProps) {
         <button
           className="icon-button"
           aria-label="Clear history"
-          disabled={!snapshot.history.length}
+          disabled={!history.length}
           onClick={() => setConfirm(true)}
         >
           <Trash2 size={17} />
@@ -1955,4 +1989,4 @@ export function History({ snapshot, refresh, notify }: PanelProps) {
       )}
     </>
   );
-}
+});

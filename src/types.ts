@@ -65,6 +65,7 @@ export interface Settings {
     saveHistory: boolean;
     context: boolean;
     microphone: string;
+    duckBackgroundAudio: boolean;
     maxRecordingSeconds: number;
     historyDays: number;
   };
@@ -204,6 +205,7 @@ export const defaultSettings: Settings = {
     saveHistory: true,
     context: true,
     microphone: "",
+    duckBackgroundAudio: false,
     maxRecordingSeconds: 300,
     historyDays: 0,
   },

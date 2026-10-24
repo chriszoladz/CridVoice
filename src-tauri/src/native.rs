@@ -828,10 +828,49 @@ pub fn context(read_text: bool) -> Context {
     context_for_output(read_text, false)
 }
 pub fn context_for_output(read_text: bool, technical: bool) -> Context {
+    capture_target_with_retry(
+        || capture_context(read_text, technical, true),
+        std::thread::sleep,
+    )
+}
+fn capture_target_with_retry(
+    mut sample: impl FnMut() -> Context,
+    mut pause: impl FnMut(std::time::Duration),
+) -> Context {
+    let mut context = sample();
+    let original_window = context.hwnd;
+    for _ in 1..FOCUS_PROBE_ATTEMPTS {
+        if context.hwnd == 0 || context.password || !context.focused_runtime_id.is_empty() {
+            break;
+        }
+        // The first accessibility request can be cold, especially in Chromium.
+        // Let it settle without adopting a different foreground window.
+        pause(FOCUS_PROBE_DELAY);
+        context = sample();
+        if context.hwnd != original_window {
+            context.hwnd = 0;
+            context.selected.clear();
+            context.nearby.clear();
+            context.window_title.clear();
+            break;
+        }
+    }
+    context
+}
+fn insertion_context() -> Context {
+    // Insertion needs fresh focus and password checks, never another process
+    // image lookup or the target's text/title. This also keeps every batch small.
+    capture_context(false, false, false)
+}
+fn capture_context(read_text: bool, technical: bool, identify_app: bool) -> Context {
     unsafe {
         let hwnd = GetForegroundWindow();
         let mut ctx = Context {
-            app: app_name(hwnd),
+            app: if identify_app {
+                app_name(hwnd)
+            } else {
+                String::new()
+            },
             hwnd: hwnd.0 as isize,
             ..Default::default()
         };
@@ -848,7 +887,7 @@ pub fn context_for_output(read_text: bool, technical: bool) -> Context {
                     ctx.focused_runtime_id = safe_array_i32(id);
                     let _ = SafeArrayDestroy(id);
                 }
-                if read_text && !ctx.password {
+                if read_text && !ctx.password && !ctx.focused_runtime_id.is_empty() {
                     if GetForegroundWindow() == hwnd {
                         let mut title = [0u16; 257];
                         let length = GetWindowTextW(hwnd, &mut title);
@@ -919,6 +958,9 @@ pub fn context_for_output(read_text: bool, technical: bool) -> Context {
             }
         }
         if GetForegroundWindow() != hwnd {
+            // A UIA response sampled across a foreground change cannot describe
+            // a trustworthy input target, even if the old HWND is still alive.
+            ctx.hwnd = 0;
             ctx.selected.clear();
             ctx.nearby.clear();
             ctx.window_title.clear();
@@ -955,14 +997,16 @@ pub fn insert(
     if !active() {
         return Err("Dictation was cancelled.".into());
     }
-    validate_insertion_target(target, &context(false))?;
+    if target.password {
+        return Err("Text insertion into password fields is disabled.".into());
+    }
     if target.app.eq_ignore_ascii_case("cridvoice") {
         return Err(
             "Use a dictation shortcut with another application focused, or copy the result.".into(),
         );
     }
     wait_for_modifier_release(active)?;
-    validate_insertion_target(target, &context(false))?;
+    validate_current_insertion_target(target, active)?;
     if method == "clipboard" {
         return crate::clipboard::with_unicode_fallback(
             || crate::clipboard::paste(text, target, app, active),
@@ -970,11 +1014,57 @@ pub fn insert(
                 // A delayed clipboard format may take time to render. Recheck
                 // modifiers and the original target before the fallback types.
                 wait_for_modifier_release(active)?;
-                type_unicode_batches(text, target, active, || context(false), send_unicode)
+                type_unicode_batches(text, target, active, insertion_context, send_unicode)
             },
         );
     }
-    type_unicode_batches(text, target, active, || context(false), send_unicode)
+    type_unicode_batches(text, target, active, insertion_context, send_unicode)
+}
+
+const FOCUS_PROBE_ATTEMPTS: usize = 5;
+const FOCUS_PROBE_DELAY: std::time::Duration = std::time::Duration::from_millis(20);
+
+pub(crate) fn validate_current_insertion_target(
+    target: &Context,
+    active: &dyn Fn() -> bool,
+) -> Result<(), String> {
+    validate_target_with_retry(target, active, insertion_context, std::thread::sleep)
+}
+
+fn validate_target_with_retry(
+    target: &Context,
+    active: &dyn Fn() -> bool,
+    mut sample: impl FnMut() -> Context,
+    mut pause: impl FnMut(std::time::Duration),
+) -> Result<(), String> {
+    for attempt in 0..FOCUS_PROBE_ATTEMPTS {
+        if !active() {
+            return Err("Dictation was cancelled.".into());
+        }
+        let current = sample();
+        if !active() {
+            return Err("Dictation was cancelled.".into());
+        }
+        match validate_insertion_target(target, &current) {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                // UIA can briefly return no focused node or an intermediate
+                // node while Chromium updates accessibility. Accept only a
+                // fresh, exact match to the ORIGINAL field. Never adopt a new
+                // runtime id, force focus, or retry a password/window change.
+                let can_settle = !target.password
+                    && !current.password
+                    && target.hwnd != 0
+                    && current.hwnd == target.hwnd
+                    && !target.focused_runtime_id.is_empty();
+                if !can_settle || attempt + 1 == FOCUS_PROBE_ATTEMPTS {
+                    return Err(error);
+                }
+                pause(FOCUS_PROBE_DELAY);
+            }
+        }
+    }
+    unreachable!("focus probe always returns within its bounded attempts")
 }
 
 pub(crate) fn validate_insertion_target(target: &Context, current: &Context) -> Result<(), String> {
@@ -984,11 +1074,24 @@ pub(crate) fn validate_insertion_target(target: &Context, current: &Context) -> 
     if target.hwnd == 0 || current.hwnd == 0 {
         return Err("The input window is unavailable. Your text is available to copy.".into());
     }
-    if current.hwnd != target.hwnd
-        || (!target.focused_runtime_id.is_empty()
-            && current.focused_runtime_id != target.focused_runtime_id)
-    {
-        return Err("Focus changed before insertion. Your text is available to copy.".into());
+    if current.hwnd != target.hwnd {
+        return Err(
+            "Focus changed to another window before insertion. Your text is available to copy."
+                .into(),
+        );
+    }
+    if target.focused_runtime_id.is_empty() {
+        return Err(
+            "The original text field could not be verified. Your text is available to copy.".into(),
+        );
+    }
+    if current.focused_runtime_id != target.focused_runtime_id {
+        return Err(if current.focused_runtime_id.is_empty() {
+            "The focused text field could not be verified. Your text is available to copy."
+        } else {
+            "Focus changed to another field before insertion. Your text is available to copy."
+        }
+        .into());
     }
     Ok(())
 }
@@ -1061,7 +1164,7 @@ fn type_unicode_batches(
             return Err(insertion_error("Dictation was cancelled.", input_started));
         }
         // Do not send the remainder to a new window, field or password input.
-        validate_insertion_target(target, &current_context())
+        validate_target_with_retry(target, active, &mut current_context, std::thread::sleep)
             .map_err(|error| insertion_error(&error, input_started))?;
         let sent = crate::controller::run_if_active(active, || send(batch))
             .map_err(|error| insertion_error(&error, input_started))?;
@@ -1102,6 +1205,231 @@ mod insertion_tests {
             hwnd: 7,
             focused_runtime_id: vec![1, 2, 3],
             ..Default::default()
+        }
+    }
+
+    #[test]
+    fn transient_missing_or_intermediate_uia_focus_recovers_only_to_original_field() {
+        for missing in [false, true] {
+            let target = target();
+            let probes = Cell::new(0);
+            let pauses = Cell::new(0);
+            let result = validate_target_with_retry(
+                &target,
+                &|| true,
+                || {
+                    probes.set(probes.get() + 1);
+                    let mut current = target.clone();
+                    if probes.get() < 3 {
+                        if missing {
+                            current.focused_runtime_id.clear();
+                        } else {
+                            current.focused_runtime_id.push(8);
+                        }
+                    }
+                    current
+                },
+                |delay| {
+                    assert_eq!(delay, FOCUS_PROBE_DELAY);
+                    pauses.set(pauses.get() + 1);
+                },
+            );
+            assert!(result.is_ok());
+            assert_eq!(probes.get(), 3);
+            assert_eq!(pauses.get(), 2);
+        }
+    }
+
+    #[test]
+    fn a_different_or_unavailable_field_never_becomes_the_new_target() {
+        for missing in [false, true] {
+            let target = target();
+            let probes = Cell::new(0);
+            let mut current = target.clone();
+            if missing {
+                current.focused_runtime_id.clear();
+            } else {
+                current.focused_runtime_id.push(8);
+            }
+            let error = validate_target_with_retry(
+                &target,
+                &|| true,
+                || {
+                    probes.set(probes.get() + 1);
+                    current.clone()
+                },
+                |_| {},
+            )
+            .unwrap_err();
+            assert!(error.contains(if missing {
+                "could not be verified"
+            } else {
+                "another field"
+            }));
+            assert_eq!(probes.get(), FOCUS_PROBE_ATTEMPTS);
+            assert_eq!(target.focused_runtime_id, vec![1, 2, 3]);
+        }
+    }
+
+    #[test]
+    fn focus_probe_never_retries_password_window_or_unavailable_foreground() {
+        for failure in 0..3 {
+            let target = target();
+            let mut current = target.clone();
+            match failure {
+                0 => current.password = true,
+                1 => current.hwnd += 1,
+                _ => current.hwnd = 0,
+            }
+            let probes = Cell::new(0);
+            let result = validate_target_with_retry(
+                &target,
+                &|| true,
+                || {
+                    probes.set(probes.get() + 1);
+                    current.clone()
+                },
+                |_| panic!("unsafe target must not be retried"),
+            );
+            assert!(result.is_err());
+            assert_eq!(probes.get(), 1);
+        }
+    }
+
+    #[test]
+    fn cancellation_during_focus_probe_or_pause_never_authorizes_input() {
+        for cancel_in_sample in [false, true] {
+            let target = target();
+            let active = Cell::new(true);
+            let probes = Cell::new(0);
+            let result = validate_target_with_retry(
+                &target,
+                &|| active.get(),
+                || {
+                    probes.set(probes.get() + 1);
+                    let mut current = target.clone();
+                    if cancel_in_sample {
+                        active.set(false);
+                    } else {
+                        current.focused_runtime_id.clear();
+                    }
+                    current
+                },
+                |_| active.set(false),
+            );
+            assert!(result.unwrap_err().contains("cancelled"));
+            assert_eq!(probes.get(), 1);
+        }
+    }
+
+    #[test]
+    fn stable_focus_passes_without_delay_or_redundant_sample() {
+        let target = target();
+        let probes = Cell::new(0);
+        validate_target_with_retry(
+            &target,
+            &|| true,
+            || {
+                probes.set(probes.get() + 1);
+                target.clone()
+            },
+            |_| panic!("stable focus does not wait"),
+        )
+        .unwrap();
+        assert_eq!(probes.get(), 1);
+    }
+
+    #[test]
+    fn missing_original_field_cannot_authorize_a_new_or_unverifiable_field() {
+        let mut target = target();
+        target.focused_runtime_id.clear();
+        for current_has_identity in [false, true] {
+            let current = if current_has_identity {
+                self::target()
+            } else {
+                target.clone()
+            };
+            let probes = Cell::new(0);
+            let result = validate_target_with_retry(
+                &target,
+                &|| true,
+                || {
+                    probes.set(probes.get() + 1);
+                    current.clone()
+                },
+                |_| panic!("missing original field must never adopt a later identity"),
+            );
+            assert!(result.unwrap_err().contains("original text field"));
+            assert_eq!(probes.get(), 1);
+        }
+    }
+
+    #[test]
+    fn initial_capture_waits_for_an_identity_in_the_original_window_only() {
+        let probes = Cell::new(0);
+        let captured = capture_target_with_retry(
+            || {
+                probes.set(probes.get() + 1);
+                let mut current = target();
+                if probes.get() < 3 {
+                    current.focused_runtime_id.clear();
+                }
+                current
+            },
+            |_| {},
+        );
+        assert_eq!(probes.get(), 3);
+        assert_eq!(captured.hwnd, target().hwnd);
+        assert_eq!(captured.focused_runtime_id, target().focused_runtime_id);
+    }
+
+    #[test]
+    fn initial_capture_never_adopts_another_window_or_its_text() {
+        let probes = Cell::new(0);
+        let captured = capture_target_with_retry(
+            || {
+                probes.set(probes.get() + 1);
+                let mut current = target();
+                if probes.get() == 1 {
+                    current.focused_runtime_id.clear();
+                } else {
+                    current.hwnd += 1;
+                    current.selected = "private selection fixture".into();
+                    current.nearby = "private context fixture".into();
+                    current.window_title = "private title fixture".into();
+                }
+                current
+            },
+            |_| {},
+        );
+        assert_eq!(probes.get(), 2);
+        assert_eq!(captured.hwnd, 0);
+        assert!(captured.selected.is_empty());
+        assert!(captured.nearby.is_empty());
+        assert!(captured.window_title.is_empty());
+    }
+
+    #[test]
+    fn initial_capture_has_bounded_missing_identity_attempts_and_stops_on_password() {
+        for password in [false, true] {
+            let probes = Cell::new(0);
+            let captured = capture_target_with_retry(
+                || {
+                    probes.set(probes.get() + 1);
+                    Context {
+                        hwnd: 7,
+                        password,
+                        ..Default::default()
+                    }
+                },
+                |_| {},
+            );
+            assert_eq!(
+                probes.get(),
+                if password { 1 } else { FOCUS_PROBE_ATTEMPTS }
+            );
+            assert!(captured.focused_runtime_id.is_empty());
+            assert_eq!(captured.password, password);
         }
     }
 

@@ -43,6 +43,9 @@ table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:13px}th,t
 <p>The compact floating bar appears at the bottom center of the primary monitor&#39;s usable desktop area, with its status label and waveform centered within the popup. It shows recording/processing stages and up to two visible lines of live preview. Turning preview off makes the card shorter. Appearance provides independent controls for the waveform, preview, and whole bar. Live recognition is provisional and depends on inference speed. Final processing may revise it after you stop.</p>
 <p>With local speech and live preview enabled, setup/repair includes Whisper Tiny, a separate CPU preview model of about 75 MiB. Its first request becomes due at about 750 milliseconds, then at minimum 300-millisecond intervals when free. Recognition still arrives in provisional chunks, so it can revise words rather than displaying every spoken word instantly. Only the latest six seconds are previewed; older words can leave the preview. Your selected final speech model independently recognizes the complete take after release, with its normal settings, then cleanup runs. Remote preview keeps its existing provider and cadence.</p>
 <p>The popup&#39;s fixed two-line area follows the newest words. Overview follows updates while you are near the bottom; scrolling back keeps your reading position until you return near the bottom. The full current preview remains accessible without a live announcement for every partial word. A preview-only failure can show <strong>Preview unavailable. Release to transcribe.</strong> while final recognition remains available. You can turn live preview off in Appearance without changing the selected final speech model.</p>
+<h2>Lower background audio</h2>
+<p>In <strong>Settings → Speech recognition</strong>, turn on <strong>Lower background audio while speaking</strong> to reduce other apps&#39; playback by 25% during recording. It is off by default. The volume returns when you stop or cancel, before final recognition and cleanup. Volume changes you make while recording are kept.</p>
+<p>This lowers computer playback such as music or a video. It does not remove room noise from the microphone recording. See Troubleshooting for supported playback devices and restoration behavior.</p>
 <h2>Speaking naturally</h2>
 <p>Cleanup resolves corrections such as:</p>
 <table>
@@ -463,6 +466,11 @@ table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:13px}th,t
 <td>Windows default, or exact input device name</td>
 </tr>
 <tr>
+<td><code>general.duckBackgroundAudio</code></td>
+<td><code>false</code></td>
+<td>Temporarily reduce other apps&#39; playback by 25% while recording; restore afterward without overwriting manual volume changes</td>
+</tr>
+<tr>
 <td><code>general.maxRecordingSeconds</code></td>
 <td><code>300</code></td>
 <td>10–1800 seconds; UI offers common durations</td>
@@ -599,6 +607,10 @@ table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:13px}th,t
 <td>Microphone worker, PCM buffers, resampling, WAV snapshots</td>
 </tr>
 <tr>
+<td><code>src-tauri/src/ducking.rs</code></td>
+<td>Optional recording-scoped playback reduction and restoration on a dedicated COM worker</td>
+</tr>
+<tr>
 <td><code>src-tauri/src/inference.rs</code></td>
 <td>Speech RPC, managed LLM startup, cloud speech, credentials</td>
 </tr>
@@ -644,6 +656,8 @@ table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:13px}th,t
 </tr>
 </tbody></table>
 <h2>Recording and state</h2>
+<p>When <code>general.duckBackgroundAudio</code> is enabled, a recorder-owned guard queues per-session playback reduction on a dedicated Windows MTA thread. Stop/cancel/Drop invalidates the take token and queues restoration without waiting in the final-recognition path. Session-created notifications discover new sessions on the existing active outputs; there is no polling loop. Sessions belonging to CridVoice and system sounds are excluded. The guard restores only an unchanged scalar that it applied, and volume-change notifications retain user adjustments. Normal tray exit allows a bounded restoration wait.</p>
+<p>History&#39;s inner view is memoized separately from session/audio events. Filtering is cached by history, language and query; an empty query skips transcript-string normalization. Integer-format microphone callbacks convert samples while downmixing rather than allocating an intermediate normalized buffer. The final resampler and recognition settings are unchanged.</p>
 <p>Background local-model preparation uses a separate warm-up epoch from recording sessions. Final speech, CPU preview, and cleanup prepare behind their individual engine locks, using only installed selected app-managed routes. Queued work rechecks its ticket before starting; route changes, explicit unload, maintenance, and shutdown invalidate stale preparation. Warm-up does not capture audio or application context, use history or provider credentials, or make external-provider calls. Its engine-status events leave the recording session idle and keep recording available.</p>
 <p>Speech preparation validates the selected model/device, shares the transcription cache, initializes lazy ONNX VAD with one second of internal zero audio, and consumes a bounded encoder/decoder pass. Its generated result is discarded and never saved. Managed cleanup starts the selected loopback server and completes a tiny representative prompt using public defaults and the current output mode only. Loaded status follows completion of these warm requests; queuing a request alone does not establish readiness. A cancelled warm request retires its worker while still holding the engine lock before maintenance can proceed. Explicit unload suspends automatic preparation until deliberate loading/use, a selected-route change, or restart.</p>
 <p>Idle → Recording → Transcribing → Cleaning → Inserting → Idle, with error/cancel paths. Recording is created on a dedicated thread so CPAL stream ownership is independent of the async executor. Input channels are averaged into mono, and a windowed-sinc resampler produces 16 kHz signed 16-bit WAV data.</p>
@@ -919,19 +933,40 @@ python scripts/package_portable.py
 </ul>
 <h2>Audio and shortcuts</h2>
 <ul>
-<li><input disabled="" type="checkbox"> Default and explicitly chosen microphones work, with Windows privacy permissions on/off.</li>
-<li><input disabled="" type="checkbox"> Test dictation returns text without inserting into another app.</li>
-<li><input disabled="" type="checkbox"> Ctrl alone and Windows alone never start recording, including after earlier takes.</li>
-<li><input disabled="" type="checkbox"> Ctrl then Windows, and Windows then Ctrl, both begin hold recording.</li>
-<li><input disabled="" type="checkbox"> Release either modifier first; recording stops, both keys are released, and insertion happens once.</li>
-<li><input disabled="" type="checkbox"> Left/right Ctrl and Windows combinations work without opening Start.</li>
-<li><input disabled="" type="checkbox"> Rapid taps, repeated presses, and an empty/silent take do not leave recording stuck.</li>
-<li><input disabled="" type="checkbox"> Two different takes in the same unsent chat draft append only each new take; no previous sentence is repeated.</li>
-<li><input disabled="" type="checkbox"> Toggle shortcut starts/stops; Escape cancels and prevents stale insertion.</li>
-<li><input disabled="" type="checkbox"> Unplugging/changing a microphone produces an actionable error or recoverable state.</li>
-<li><input disabled="" type="checkbox"> Recording limit ends cleanly; no temporary WAV survives a completed request.</li>
-<li><input disabled="" type="checkbox"> Waveform, transcript preview, and floating bar toggle independently.</li>
-<li><input disabled="" type="checkbox"> Multi-monitor / 100%, 125%, 150%, 200% scaling leaves the bar visible and legible.</li>
+<li><p><input disabled="" type="checkbox"> Repeat short takes in the same chat field with Ctrl first and Windows first, releasing both between takes. Each take inserts once without including the earlier result.</p>
+</li>
+<li><p><input disabled="" type="checkbox"> Keep the caret in the same field through preview and processing; check automatic insertion. Deliberately focus another field/window during processing and confirm insertion is blocked with the appropriate message.</p>
+</li>
+<li><p><input disabled="" type="checkbox"> Enable <strong>Lower background audio while speaking</strong> while music/video plays. Check the slight reduction during recording and restoration on release, Escape, microphone error and normal Quit. Turn it off and confirm playback stays unchanged.</p>
+</li>
+<li><p><input disabled="" type="checkbox"> Change the player&#39;s Windows session volume during recording and confirm that adjustment is retained afterward. Test newly started playback on an already connected output. Record unsupported exclusive-mode/device-switch behavior separately.</p>
+</li>
+<li><p><input disabled="" type="checkbox"> Default and explicitly chosen microphones work, with Windows privacy permissions on/off.</p>
+</li>
+<li><p><input disabled="" type="checkbox"> Test dictation returns text without inserting into another app.</p>
+</li>
+<li><p><input disabled="" type="checkbox"> Ctrl alone and Windows alone never start recording, including after earlier takes.</p>
+</li>
+<li><p><input disabled="" type="checkbox"> Ctrl then Windows, and Windows then Ctrl, both begin hold recording.</p>
+</li>
+<li><p><input disabled="" type="checkbox"> Release either modifier first; recording stops, both keys are released, and insertion happens once.</p>
+</li>
+<li><p><input disabled="" type="checkbox"> Left/right Ctrl and Windows combinations work without opening Start.</p>
+</li>
+<li><p><input disabled="" type="checkbox"> Rapid taps, repeated presses, and an empty/silent take do not leave recording stuck.</p>
+</li>
+<li><p><input disabled="" type="checkbox"> Two different takes in the same unsent chat draft append only each new take; no previous sentence is repeated.</p>
+</li>
+<li><p><input disabled="" type="checkbox"> Toggle shortcut starts/stops; Escape cancels and prevents stale insertion.</p>
+</li>
+<li><p><input disabled="" type="checkbox"> Unplugging/changing a microphone produces an actionable error or recoverable state.</p>
+</li>
+<li><p><input disabled="" type="checkbox"> Recording limit ends cleanly; no temporary WAV survives a completed request.</p>
+</li>
+<li><p><input disabled="" type="checkbox"> Waveform, transcript preview, and floating bar toggle independently.</p>
+</li>
+<li><p><input disabled="" type="checkbox"> Multi-monitor / 100%, 125%, 150%, 200% scaling leaves the bar visible and legible.</p>
+</li>
 </ul>
 <h2>Inference</h2>
 <ul>
@@ -1018,6 +1053,13 @@ python scripts/package_portable.py
 <h2>Result record</h2>
 <p>Copy this document into a dated test report, mark pass/fail, attach concise reproduction steps for failures, and list any app/model/driver combinations excluded from the release. Public distribution additionally requires signing and installation tests on clean Windows machines.</p>
 </article><article id="TROUBLESHOOTING"><h1>Troubleshooting</h1>
+<h2>Speech is in History but did not insert</h2>
+<p>The transcript is saved before insertion, so a saved result does not prove the target field accepted it. Copy the result from History if needed.</p>
+<p>CridVoice 0.1.16 rechecks a transient missing/different accessibility node for up to five samples, spaced 20 ms apart, accepting only the original window and field. Stable focus adds no wait. A real window change or password field stops immediately. It never forces another window into focus or replays input after a partial paste/type.</p>
+<p>The message distinguishes a changed window, a different field and a field Windows could not identify. Keep the original field focused until insertion completes. If an app does not expose a verifiable input field through Windows accessibility, Copy remains available. For administrator apps, CridVoice needs compatible elevation; running normal applications normally is preferable.</p>
+<h2>Lower background audio</h2>
+<p><strong>Settings → Speech recognition → Lower background audio while speaking</strong> is off by default. It reduces other apps&#39; per-session playback volumes by 25% on currently active output devices and restores them after stop/cancel, recording errors, or normal exit. It leaves the system volume, mute state, microphone and system-sound session alone. Manual session-volume adjustments during a take are retained.</p>
+<p>Windows audio support varies: exclusive-mode playback and devices connected after recording starts may not expose an adjustable session. An abrupt process termination or power loss cannot run normal restoration; use Windows Volume mixer if needed. This is playback reduction, not microphone noise removal. It adds no model or download.</p>
 <h2>Navigation labels are hidden</h2>
 <p>Choose <strong>Expand sidebar</strong> to restore page labels. Collapsed navigation keeps its icons: hover or keyboard-focus an icon to see its name, or use <strong>Ctrl + K</strong> to find a page. The collapse preference is remembered without changing your processing settings.</p>
 <h2>Header is dimmed while a dialog is open</h2>
@@ -1086,7 +1128,12 @@ python scripts/package_portable.py
 <p>Tekst transkrypcji jest zapisywany lokalnie w History. Nagrania audio nie są przechowywane jako historia. Appearance zawiera osiem motywów, tryb jasny/ciemny/systemowy oraz przełączniki fali dźwiękowej, podglądu tekstu i paska nagrywania.</p>
 <p>Nie zmieniaj aktywnego pola przed zakończeniem przetwarzania. Jeśli fokus się zmieni, wynik zostanie zapisany zamiast wpisany do innego pola. Dokładność i rozumienie poprawek zależą od wybranych modeli. Przetestuj aplikację na swoim Windows 11 zgodnie z <a href="#WINDOWS-TESTING">listą testów</a>.</p>
 </article><article id="VALIDATION"><h1>Validation report</h1>
-<h2>Current 0.1.15 configuration controls</h2>
+<h2>Current 0.1.16 insertion, background audio and performance</h2>
+<p>Version 0.1.16 addresses transient Windows accessibility focus reads before automatic insertion. Bounded retries accept only the original input identity; window/password/cancellation checks, clipboard publication ownership and no replay after dispatch remain required. Missing original field identity is not accepted as a wildcard. Error messages distinguish unavailable fields and actual focus changes without collecting target contents.</p>
+<p>The optional playback reduction setting defaults off, attenuates other app sessions during recording, and queues conditional restoration when the recording ends. Normal shutdown has a bounded restoration wait. Policy/lifecycle tests do not establish behavior with every audio driver or exclusive-mode player.</p>
+<p>History no longer rebuilds unchanged rows for frequent recording events. Integer microphone formats avoid an intermediate conversion allocation; equivalence tests cover channel averaging, sample extrema, caps and RMS. This changes neither the selected final model nor its decoding settings. No speech-accuracy or end-to-end latency improvement is inferred from these code changes.</p>
+<p>Matching external 0.1.16 verification records actual automated, package and installed checks. Physical shortcuts, real microphone/target-app insertion and audible volume behavior require a separate acceptance pass. Earlier results below retain their original scope.</p>
+<h2>Historical 0.1.15 configuration controls</h2>
 <p>CridVoice 0.1.15 adds deliberate shortcut capture with conflict checks, Cancel/Escape, a 30-second incomplete-capture limit, and default restoration. Common language/shell choices retain the same optional custom hint. Application rules offer common/recent/running/custom names and editing. Settings loads microphone choices when opened, preserves a disconnected saved choice, and adds section jumps and search keywords.</p>
 <p>Provider model discovery is an explicit request from setup/the provider editor to the configured draft endpoint. It returns IDs without classifying capabilities, offers a custom-ID fallback, uses exact saved-credential binding, and does not persist typed keys. Loopback fixtures establish request behavior rather than real-provider support. The 0.1.14 current-take cleanup and clipboard protections are retained.</p>
 <p>Final 0.1.15 automated counts, build/install outcomes, and scoped human feedback belong to matching external verification. At this source checkpoint they are pending; earlier versioned results remain historical. No current installed/user acceptance or new microphone/model accuracy is claimed.</p>

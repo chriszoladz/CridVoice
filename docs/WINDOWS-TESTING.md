@@ -25,6 +25,11 @@ Run this on the actual Windows 11 machine before treating CridVoice as productio
 
 ## Audio and shortcuts
 
+- [ ] Repeat short takes in the same chat field with Ctrl first and Windows first, releasing both between takes. Each take inserts once without including the earlier result.
+- [ ] Keep the caret in the same field through preview and processing; check automatic insertion. Deliberately focus another field/window during processing and confirm insertion is blocked with the appropriate message.
+- [ ] Enable **Lower background audio while speaking** while music/video plays. Check the slight reduction during recording and restoration on release, Escape, microphone error and normal Quit. Turn it off and confirm playback stays unchanged.
+- [ ] Change the player's Windows session volume during recording and confirm that adjustment is retained afterward. Test newly started playback on an already connected output. Record unsupported exclusive-mode/device-switch behavior separately.
+
 - [ ] Default and explicitly chosen microphones work, with Windows privacy permissions on/off.
 - [ ] Test dictation returns text without inserting into another app.
 - [ ] Ctrl alone and Windows alone never start recording, including after earlier takes.

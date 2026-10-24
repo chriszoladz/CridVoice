@@ -124,6 +124,7 @@ impl Default for Shortcuts {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct General {
+    pub duck_background_audio: bool,
     pub insertion_method: String,
     pub startup: bool,
     pub save_history: bool,
@@ -135,6 +136,7 @@ pub struct General {
 impl Default for General {
     fn default() -> Self {
         Self {
+            duck_background_audio: false,
             insertion_method: "clipboard".into(),
             startup: false,
             save_history: true,
