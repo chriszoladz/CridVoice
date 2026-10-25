@@ -3,8 +3,8 @@
 ## Windows prerequisites
 
 - Windows 11 x64, current Microsoft WebView2.
-- Node.js 22+ and npm.
-- Rust stable (the lockfile used Rust 1.99 during initial validation; use a current toolchain).
+- Node.js 24 and npm match the Windows release workflow. Node.js 22.12+ also meets Vite's requirement.
+- Rust 1.99.0 matches the tested Windows release workflow.
 - Visual Studio Build Tools, Desktop Development with C++, and a Windows SDK.
 - Python 3.12+ to assemble the packaged runtime; end users do not need Python.
 - For GPU testing: an NVIDIA GPU and current driver. Download GPU speech libraries through the app.
