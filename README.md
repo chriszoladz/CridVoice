@@ -7,12 +7,12 @@
 
 ### Voice dictation that still sounds like you.
 
-Speak into your everyday apps. Turn a rough thought into clear writing.<br>
-Keep your own words, your own slang, and your own voice.
+Messages, notes, emails, code, and the thoughts you haven't organized yet.<br>
+Say what you mean. Let CridVoice help put it into words.
 
-**Windows 11 x64 · Local AI or your chosen provider · English + Polish**
+**Windows 11 x64 · English + Polish · Local AI or your chosen provider**
 
-[Download for Windows](https://github.com/chriszoladz/CridVoice/releases/tag/v0.1.20) · [See the app](#a-look-inside) · [Getting started](#getting-started) · [User guide](docs/USER-GUIDE.md)
+[Download for Windows](https://github.com/chriszoladz/CridVoice/releases/tag/v0.1.20) · [See the app](#a-look-inside) · [Get started](#getting-started) · [User guide](docs/USER-GUIDE.md)
 
 </div>
 
@@ -20,51 +20,59 @@ Keep your own words, your own slang, and your own voice.
 
 ## Speak. Release. Keep going.
 
-Click a text field, hold <kbd>Ctrl</kbd> + <kbd>Windows</kbd>, and speak. Release the keys to transcribe, clean up, and insert your words.
+CridVoice turns your speech into text in the app you're using. Write a quick reply, get a longer thought down, or dictate code and commands without switching back and forth to a separate editor.
 
-Live preview follows along while you talk. With local AI, a separate small Whisper Tiny model supplies provisional text while your selected speech model handles the complete take. Preview words may revise as more speech arrives.
+Click a text field, hold <kbd>Ctrl</kbd> + <kbd>Windows</kbd>, and speak. Release the keys to finish. CridVoice transcribes your words and inserts the result into the field.
 
-| Write naturally | Make it yours |
-| --- | --- |
-| **Everyday dictation** for messages, notes, email, and longer thoughts. | **Writing styles and rewrite strength** for lighter cleanup or more thorough editing. |
-| **Code and CLI modes** for literal dictation or generating output from spoken instructions. | **Personal instructions** for your preferred wording, tone, and formatting. |
-| **English and Polish** with automatic detection or a manual language choice. | **App-specific guidance and vocabulary** for different tools, names, and spellings. |
-| **Local models or connected providers**, configured separately for speech and cleanup. | **Themes, text sizing, a compact overlay, and adjustable background-audio reduction.** |
-
-An optional **10–90% audio reduction** slider temporarily lowers other apps' playback while you record, then restores it when you finish or cancel.
+A compact popup shows the waveform and live text while you talk. Preview words can change as you keep speaking.
 
 ## A look inside
 
-Previews captured from the **0.1.20 interface**, using demonstration text and simulated desktop state.
+**Your workspace.** Dictation controls, recent transcripts, and your processing choices in one place.
 
-**Your workspace.** Dictation controls, recent transcripts, model readiness, and processing settings together.
+![CridVoice Overview with dictation controls and sample transcripts](docs/images/overview.png)
 
-![CridVoice Overview with dictation controls, ready local models, and sample transcripts](docs/images/overview.png)
-
-**The recording popup.** Hold <kbd>Ctrl</kbd> + <kbd>Windows</kbd> to see the waveform and provisional words without opening the main window.
+**Your words as you speak.** The recording popup stays compact so you can keep your attention on what you're writing.
 
 <p align="center">
-  <img src="docs/images/recording-preview.png" alt="Compact CridVoice recording popup with a waveform and the sample preview: Let's move the review to Wednesday at three" width="560">
+  <img src="docs/images/recording-preview.png" alt="CridVoice recording popup showing a waveform and live text" width="560">
 </p>
 
 <details>
-<summary><strong>Preview writing styles and personal preferences</strong></summary>
+<summary><strong>See writing styles and personal preferences</strong></summary>
 
-Choose the tone, adjust rewrite strength, and describe how you want the result to sound.
+Choose a tone, adjust how much rewriting happens, and tell CridVoice how you want to sound.
 
-![Writing styles with Natural tone, Balanced rewrite strength, and saved sample writing preferences](docs/images/writing-styles.png)
+![Writing styles with Natural tone, Balanced rewrite strength, and sample personal preferences](docs/images/writing-styles.png)
 
 </details>
 
-## Keep the result in your voice
+<sub>Screenshots show CridVoice 0.1.20 with sample text.</sub>
 
-In **Writing styles → How should CridVoice write for you?**, describe what you want:
+## Make it work your way
+
+| Feature | What you can do |
+| --- | --- |
+| **Everyday dictation** | Speak into messages, notes, email, and other text fields. |
+| **Clearer writing** | Clean up grammar and rough thoughts, with Light, Balanced, or Thorough rewriting. |
+| **Your own voice** | Choose a writing style and add preferences for your slang, tone, and formatting. |
+| **Code and commands** | Dictate code literally or generate it from spoken instructions. Detect the language or shell automatically, or choose it yourself. |
+| **English and Polish** | Use automatic language detection or select a language manually. |
+| **Vocabulary and app rules** | Prioritize names and spellings, and choose different writing styles for different apps. |
+| **Local or cloud AI** | Run speech recognition and text cleanup on your PC, or connect a compatible provider. |
+| **Searchable history** | Find, copy, export, or delete saved transcripts. Saving history is optional. |
+| **Background audio control** | Temporarily lower music and video playback while speaking, with an adjustable reduction slider. |
+| **A workspace that fits** | Change the theme and text size, collapse the sidebar, and set shortcuts by pressing the keys. |
+
+## Keep it sounding like you
+
+Want grammar fixes without sounding formal? Prefer short paragraphs? Want to keep your own slang? Tell CridVoice in **Writing styles → How should CridVoice write for you?**
 
 > Keep my own words and slang. Fix grammar without making me sound formal. Use short paragraphs.
 
-Choose **Save preferences** to apply it, or **Use defaults** to clear it. Light, Balanced, and Thorough control how much editing happens. Your selected style supplies the default tone; personal instructions can refine it.
+Choose **Save preferences**, then use **Light**, **Balanced**, or **Thorough** to control how much rewriting happens. Your intended meaning, facts, and uncertainty come first. Review important details before sending.
 
-Text preferences stay separate from coding modes. Code and command output can use automatic language/shell hints or a manual override. Generated code and multiline output for a recognized terminal open for review and **Copy**.
+Writing preferences apply to normal text. Coding modes handle code and commands separately; generated code opens for review and copying.
 
 ## Getting started
 
@@ -72,69 +80,35 @@ Text preferences stay separate from coding modes. Code and command output can us
 
 | Install it | Keep it portable |
 | --- | --- |
-| [Windows installer EXE](https://github.com/chriszoladz/CridVoice/releases/download/v0.1.20/CridVoice-0.1.20-windows-x64-setup.exe) | [Portable ZIP](https://github.com/chriszoladz/CridVoice/releases/download/v0.1.20/CridVoice-0.1.20-windows-x64-portable.zip) |
+| [Windows installer](https://github.com/chriszoladz/CridVoice/releases/download/v0.1.20/CridVoice-0.1.20-windows-x64-setup.exe) | [Portable ZIP](https://github.com/chriszoladz/CridVoice/releases/download/v0.1.20/CridVoice-0.1.20-windows-x64-portable.zip) |
 
-An [installer ZIP](https://github.com/chriszoladz/CridVoice/releases/download/v0.1.20/CridVoice-0.1.20-windows-x64-installer.zip), SHA-256 checksums, and build information are also attached to the release. The packages are unsigned evaluation builds.
+Run the installer, or extract the entire portable ZIP and open `CridVoice.exe`. Keep the portable files together. The current download is an unsigned prerelease.
 
-**Using an installer or portable build?** Install it, or extract the entire portable ZIP and run `CridVoice.exe`. Keep the portable files together. Python is bundled; Microsoft WebView2 is required.
+The setup wizard guides you through language, AI processing, and preferences. Choose local AI or connect a provider. Required local models download during setup with visible progress.
 
-On first launch, the setup wizard lets you choose managed local AI, an existing LM Studio/llama.cpp server, or a compatible provider. It shows the download size and visible progress while installing and verifying the components your choices require. Models are downloaded during setup rather than bundled with the installer or portable ZIP.
+Finish setup, click a text field, and try <kbd>Ctrl</kbd> + <kbd>Windows</kbd>. You can revisit setup and change your choices in Settings.
 
-For local AI, NVIDIA GPU speech recognition uses CUDA; text inference uses llama.cpp with Vulkan. CPU processing is also available. The [models and hardware guide](docs/MODELS.md) explains model sizes, runtime choices, and drivers.
+Local AI can use your CPU or a supported NVIDIA GPU. See [models and hardware](docs/MODELS.md) if you're choosing a setup for your PC.
 
-Selected installed engines warm in the background. Overview shows when they are ready. Setup and repair can be reopened from Settings.
+## Shortcuts
 
 | Shortcut | Action |
 | --- | --- |
-| <kbd>Ctrl</kbd> + <kbd>Windows</kbd> | Hold to dictate, release to finish |
-| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Space</kbd> | Start or stop toggle dictation |
+| <kbd>Ctrl</kbd> + <kbd>Windows</kbd> | Hold to dictate; release to finish |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Space</kbd> | Start or stop dictation |
 | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>R</kbd> | Rewrite selected text using spoken instructions |
 | <kbd>Escape</kbd> | Cancel |
 
-Shortcuts can be changed by pressing the new combination in Settings.
+To change a shortcut, select **Change** in Settings and press the combination you want.
 
-## Your processing, your choice
+## Your words, your choice
 
-With managed local models, speech recognition and cleanup run on your PC. If you choose a provider, the data needed for that stage is sent to that provider. Read [Privacy and storage](docs/PRIVACY.md) for audio handling, application context, saved history, keys, and portable mode.
+With local AI selected for both speech and cleanup, your audio and text are processed on your PC. If you choose a cloud provider, the information needed for that step is sent to that provider.
 
-Transcripts can be saved locally with search, export, retention, and deletion controls. Optional completed-dictation clipboard copying is **off by default** and replaces the previous clipboard contents when enabled. Output awaiting review keeps its explicit Copy action.
+You control whether transcripts are saved. You can also enable clipboard copying for completed dictation in Settings. Read [Privacy and storage](docs/PRIVACY.md) for details.
 
-## Guides
+## Need a hand?
 
-| Using CridVoice | Developing CridVoice |
-| --- | --- |
-| [User guide](docs/USER-GUIDE.md) | [Development and tests](docs/DEVELOPMENT.md) |
-| [Models and hardware](docs/MODELS.md) | [Architecture](docs/ARCHITECTURE.md) |
-| [Providers](docs/PROVIDERS.md) | [Build and release](docs/RELEASING.md) |
-| [Configuration reference](docs/CONFIGURATION.md) | [Windows acceptance checks](docs/WINDOWS-TESTING.md) |
-| [Troubleshooting](docs/TROUBLESHOOTING.md) | [Security review](docs/SECURITY-REVIEW-2026-10-24.md) |
-| [Polski: szybki start](docs/QUICKSTART-PL.md) | [Validation scope and history](docs/VALIDATION.md) |
+[User guide](docs/USER-GUIDE.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Polski: szybki start](docs/QUICKSTART-PL.md) · [What's new](CHANGELOG.md)
 
-## Build from source
-
-The tested Windows release workflow uses **Node.js 24, Rust 1.99.0, and Python 3.12**. Install Visual Studio Build Tools with **Desktop Development with C++** too. If you use Node.js 22, Vite requires **22.12 or newer**. End users do not need Node.js, Rust, or Python.
-
-```powershell
-npm ci
-python scripts/package_python.py --locked
-npm run desktop
-```
-
-For a browser preview on Windows, Linux, or macOS:
-
-```sh
-npm ci
-npm run dev
-```
-
-Browser preview uses simulated desktop integration. Microphone capture, Windows insertion, and native model readiness require the desktop app. See [Development](docs/DEVELOPMENT.md) for tests and [Build and release](docs/RELEASING.md) for installer/portable packaging.
-
-## Current version
-
-**0.1.20** adds personal writing preferences and stronger preservation of intentional slang and forms of address. Personalized cleanup checks your requested wording and may take a little longer; live preview and ordinary dictation keep their existing paths. See the [changelog](CHANGELOG.md) for version history.
-
-Rewriting remains model-dependent. In local Qwen3-4B testing, one personalized Polish case kept an explicit spoken correction instead of removing the abandoned word. Important facts still need review. Automated checks and user feedback have different scopes, described in the [validation documentation](docs/VALIDATION.md).
-
-Windows packages are currently unsigned evaluation builds. Third-party components retain their own [licenses and notices](THIRD-PARTY-NOTICES.md).
-
-Releases build and verify the installer, portable ZIP, and checksums through GitHub Actions. See [browser-free publishing](docs/RELEASING.md#browser-free-release-publishing) for the release process.
+For contributors: [development guide](docs/DEVELOPMENT.md). Third-party components retain their own [licenses and notices](THIRD-PARTY-NOTICES.md).
