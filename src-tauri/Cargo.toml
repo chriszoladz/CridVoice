@@ -1,0 +1,53 @@
+[package]
+name = "cridvoice"
+version = "0.1.20"
+description = "Personal, local-first Windows dictation"
+authors = ["CridVoice"]
+edition = "2021"
+rust-version = "1.85"
+
+[lib]
+name = "cridvoice_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+url = "2"
+sha2 = "0.10"
+rusqlite = { version = "0.37", features = ["bundled"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "stream", "rustls-tls"] }
+tokio = { version = "1", features = ["full"] }
+futures-util = "0.3"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["test-util"] }
+
+[target.'cfg(windows)'.dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-autostart = "2"
+keyring = { version = "3", features = ["windows-native"] }
+base64 = "0.22"
+zeroize = "1"
+windows-core = "0.61"
+cpal = "0.16"
+hound = "3"
+sysinfo = "0.37"
+windows = { version = "0.61", features = ["Win32_Media_Audio", "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Accessibility", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Ole", "Win32_System_Threading", "Win32_System_ProcessStatus", "Win32_System_DataExchange", "Win32_System_Memory", "Win32_System_JobObjects", "Win32_Security", "Win32_Security_Cryptography"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]

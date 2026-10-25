@@ -1,0 +1,144 @@
+{
+  "origin": "User-supplied CridVoice Logo-png.zip",
+  "transformation": "Tight pixel crop; exact uniform background pixels made transparent; no redraw or recoloring",
+  "outputs": [
+    {
+      "source": "App icon and small sizes.png",
+      "sourceSha256": "e46c06a8ea4472fcce8eb48f4abd43edd1cac6fb8653e43c4c40e57edbe5cc75",
+      "name": "app-icon.png",
+      "boardWidth": 2400,
+      "boardHeight": 1120,
+      "crop": {
+        "x": 232,
+        "y": 360,
+        "width": 400,
+        "height": 400
+      },
+      "background": [
+        35,
+        35,
+        41,
+        255
+      ],
+      "transparentPixels": 7020,
+      "retainedPixels": 152980,
+      "retainedPixelMismatchCount": 0,
+      "outputSha256": "b061577612908ccdcd8d9128c958cd54e231b295c0330fa38394bd5eb8d2e06a"
+    },
+    {
+      "source": "Primary lockup, dark.png",
+      "sourceSha256": "293c007703e12ed600010e6f012c506527c02b65ae5fa5e7ca0d21d636a11182",
+      "name": "lockup-dark.png",
+      "boardWidth": 2400,
+      "boardHeight": 1440,
+      "crop": {
+        "x": 411,
+        "y": 606,
+        "width": 1588,
+        "height": 228
+      },
+      "background": [
+        20,
+        20,
+        24,
+        255
+      ],
+      "transparentPixels": 252903,
+      "retainedPixels": 109161,
+      "retainedPixelMismatchCount": 0,
+      "outputSha256": "1ef327f53adfb881c7a0ef0a3d87b0dce2dcb67e92b137cadeb963df9e04b35e"
+    },
+    {
+      "source": "Primary lockup, dark.png",
+      "sourceSha256": "293c007703e12ed600010e6f012c506527c02b65ae5fa5e7ca0d21d636a11182",
+      "name": "mark-dark.png",
+      "boardWidth": 2400,
+      "boardHeight": 1440,
+      "crop": {
+        "x": 411,
+        "y": 606,
+        "width": 404,
+        "height": 228
+      },
+      "background": [
+        20,
+        20,
+        24,
+        255
+      ],
+      "transparentPixels": 54028,
+      "retainedPixels": 38084,
+      "retainedPixelMismatchCount": 0,
+      "outputSha256": "0b2b310945ea4d90a98bffd65d88839d3345caaa0fffc2071df6296fabf11d81"
+    },
+    {
+      "source": "Light lockup and mono stacked.png",
+      "sourceSha256": "d43ae2e41a5b19d61933fbee6a1a93d41a4b4340094d0d493a55971ed014226c",
+      "name": "lockup-light.png",
+      "boardWidth": 2400,
+      "boardHeight": 1440,
+      "crop": {
+        "x": 115,
+        "y": 647,
+        "width": 977,
+        "height": 146
+      },
+      "background": [
+        239,
+        231,
+        218,
+        255
+      ],
+      "transparentPixels": 100417,
+      "retainedPixels": 42225,
+      "retainedPixelMismatchCount": 0,
+      "outputSha256": "691214b307f98813ef6a8e1297efc0d70c5fcae381c8a54e99ce8c14d08160bb"
+    },
+    {
+      "source": "Light lockup and mono stacked.png",
+      "sourceSha256": "d43ae2e41a5b19d61933fbee6a1a93d41a4b4340094d0d493a55971ed014226c",
+      "name": "mark-light.png",
+      "boardWidth": 2400,
+      "boardHeight": 1440,
+      "crop": {
+        "x": 115,
+        "y": 647,
+        "width": 257,
+        "height": 146
+      },
+      "background": [
+        239,
+        231,
+        218,
+        255
+      ],
+      "transparentPixels": 21991,
+      "retainedPixels": 15531,
+      "retainedPixelMismatchCount": 0,
+      "outputSha256": "1b48b05d1749e5ee2da15f5cb76750ba81f2507eb425b378dd37ed68d8757a80"
+    },
+    {
+      "source": "Light lockup and mono stacked.png",
+      "sourceSha256": "d43ae2e41a5b19d61933fbee6a1a93d41a4b4340094d0d493a55971ed014226c",
+      "name": "lockup-mono-dark.png",
+      "boardWidth": 2400,
+      "boardHeight": 1440,
+      "crop": {
+        "x": 1535,
+        "y": 521,
+        "width": 537,
+        "height": 509
+      },
+      "background": [
+        20,
+        20,
+        24,
+        255
+      ],
+      "transparentPixels": 201984,
+      "retainedPixels": 71349,
+      "retainedPixelMismatchCount": 0,
+      "outputSha256": "646ec6de8e6ab1263111a7ac9e28c6299494646c15460968296addfe8feba501"
+    }
+  ]
+}
