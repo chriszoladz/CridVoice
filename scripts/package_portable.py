@@ -39,5 +39,6 @@ def main():
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
         for file in sorted(dest.rglob('*')):
             if file.is_file():z.write(file,file.relative_to(output))
-    print(str(archive));print('SHA256 '+hashlib.file_digest(archive.open('rb'),'sha256').hexdigest())
+    with archive.open('rb') as stream:digest=hashlib.file_digest(stream,'sha256').hexdigest()
+    print(str(archive));print('SHA256 '+digest)
 if __name__=='__main__':main()

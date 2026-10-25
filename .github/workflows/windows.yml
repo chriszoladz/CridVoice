@@ -1,24 +1,67 @@
-name: Windows validation and artifacts
+name: Windows validation and releases
 on:
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: Publish the verified unsigned evaluation build
+        required: false
+        default: false
+        type: boolean
   push:
     branches: [main]
   pull_request:
+permissions:
+  contents: read
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      commit: ${{ steps.plan.outputs.commit }}
+      publish: ${{ steps.plan.outputs.publish }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - id: plan
+        name: Validate release intent and version
+        env:
+          RELEASE_EVENT: ${{ github.event_name }}
+          RELEASE_REF: ${{ github.ref }}
+          RELEASE_BEFORE: ${{ github.event.before }}
+          RELEASE_DISPATCH: ${{ inputs.publish_release }}
+        run: python scripts/release_plan.py
   windows:
+    needs: prepare
     runs-on: windows-2022
+    timeout-minutes: 45
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
     permissions:
       contents: read
+    env:
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
           cache: npm
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable action
+        with:
+          toolchain: '1.99.0'
+          components: clippy
       - name: Install frontend dependencies
         run: npm ci
       - name: Package verified Python runtime
@@ -28,27 +71,73 @@ jobs:
         run: |
           & .\src-tauri\resources\python\python.exe -c "import numpy, ctranslate2, faster_whisper, av, onnxruntime; print('Windows inference imports passed')"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Frontend build and tests
-        run: |
-          npm run build
-          npm test
-      - name: Speech boundary tests
-        run: |
-          python -m pip install numpy==2.2.6
-          python -m unittest discover -s tests -p "test_*.py"
+      - name: Frontend build
+        run: npm run build
+      - name: Frontend tests
+        run: npm test
+      - name: Prepare Python tests
+        run: python -m pip install numpy==2.2.6
+      - name: Speech and release boundary tests
+        run: python -m unittest discover -s tests -p "test_*.py"
       - name: Rust tests
         run: cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
+      - name: Strict Clippy
+        run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - name: Prepare browser tests
+        run: npx playwright install chromium
       - name: Browser flows
-        run: |
-          npx playwright install chromium
-          npm run test:ui
+        run: npm run test:ui
       - name: Build Windows installer
         run: npm run tauri -- build --target x86_64-pc-windows-msvc --bundles nsis
       - name: Package portable build
-        run: python scripts/package_portable.py
-      - uses: actions/upload-artifact@v4
+        run: python scripts/package_portable.py --target x86_64-pc-windows-msvc
+      - name: Verify Windows file versions
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = Get-Item -LiteralPath 'src-tauri/target/x86_64-pc-windows-msvc/release/cridvoice.exe'
+          $setup = Get-Item -LiteralPath "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/CridVoice_$($env:RELEASE_VERSION)_x64-setup.exe"
+          if ($app.VersionInfo.FileVersion -ne $env:RELEASE_VERSION -or $setup.VersionInfo.ProductVersion -ne $env:RELEASE_VERSION) { throw 'Windows binary versions differ from the release request.' }
+      - name: Prepare and verify public assets
+        run: python scripts/release_assets.py prepare --folder release/publish --commit $env:RELEASE_COMMIT
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        id: upload
         with:
           name: CridVoice-windows-x64
-          path: |
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
-            release/*.zip
+          path: release/publish/*
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+  publish:
+    needs: [prepare, windows]
+    if: >-
+      needs.prepare.outputs.publish == 'true' &&
+      github.repository == 'chriszoladz/CridVoice' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: cridvoice-release-publication
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          artifact-ids: ${{ needs.windows.outputs.artifact_id }}
+          path: release/publish
+      - name: Verify uploads and publish evaluation release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_PROMPT_DISABLED: '1'
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: python scripts/publish_release.py --folder release/publish --version "$RELEASE_VERSION" --commit "$RELEASE_COMMIT"
