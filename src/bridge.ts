@@ -1,6 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { defaultSettings } from "./types";
+import { automaticCleanup } from "./localModelStatus";
 import type { Settings, Snapshot, Session, DownloadProgress } from "./types";
 export const desktop = isTauri();
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -33,7 +34,7 @@ const previewSnapshot = (): Snapshot => ({
     threads: 0,
   },
   models: [],
-  version: "0.1.20",
+  version: "0.1.21",
   portable: false,
   dataDir: "Available in desktop app",
 });
@@ -48,7 +49,7 @@ export async function completeSetup(settings: Settings): Promise<void> {
   if (desktop) return invoke("complete_setup", { settings });
   if (
     settings.transcription.mode === "local" ||
-    settings.cleanup.mode === "managed"
+    (settings.cleanup.mode === "managed" && automaticCleanup(settings))
   )
     throw new Error(
       "Local AI setup must be completed in the Windows desktop app.",

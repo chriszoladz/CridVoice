@@ -887,13 +887,41 @@ impl Inference {
         ctx: &Context,
         rewrite: bool,
         context: RequestContext<'_>,
-    ) -> Result<crate::coding::Output, String> {
+    ) -> Result<(crate::coding::Output, bool), String> {
+        if s.cleanup.mode == "off" || crate::fidelity::original_words(s, ctx, rewrite) {
+            return Ok((
+                crate::coding::Output {
+                    text: raw.to_owned(),
+                    coding_language: None,
+                },
+                true,
+            ));
+        }
         let output = self
             .cleanup_inner(app, s, raw, ctx, rewrite, context)
             .await?;
         let mut output = crate::coding::normalize_output(s, raw, rewrite, output);
         output.text = core::format_text_cleanup_output(s, raw, output.text, rewrite, ctx);
-        Ok(output)
+        if crate::fidelity::needs_check(s, raw, &output.text, ctx, rewrite) {
+            let check = crate::fidelity::messages(s, raw, &output.text, ctx);
+            // One bounded second opinion on the SAME provider/model. A bad,
+            // malformed or unavailable check uses the original words, never
+            // a guessed rewrite or an unselected cloud provider.
+            let verified = crate::fidelity::preserves_critical_details(s, raw, &output.text, ctx)
+                && tokio::time::timeout(
+                    Duration::from_secs(if s.cleanup.mode == "provider" { 10 } else { 4 }),
+                    self.cleanup_request(app, s, crate::fidelity::SYSTEM, &check, context),
+                )
+                .await
+                .is_ok_and(|result| {
+                    result.is_ok_and(|reply| crate::fidelity::approved(&reply.text))
+                });
+            if !verified {
+                output.text = raw.to_owned();
+                return Ok((output, true));
+            }
+        }
+        Ok((output, false))
     }
     async fn cleanup_inner(
         &self,
@@ -911,6 +939,16 @@ impl Inference {
             });
         }
         let (system, user) = core::cleanup_messages(s, raw, ctx, rewrite);
+        self.cleanup_request(app, s, &system, &user, context).await
+    }
+    async fn cleanup_request(
+        &self,
+        app: &AppHandle,
+        s: &Settings,
+        system: &str,
+        user: &str,
+        context: RequestContext<'_>,
+    ) -> Result<crate::coding::Output, String> {
         if s.cleanup.mode == "provider" {
             let p = s
                 .providers
@@ -921,8 +959,8 @@ impl Inference {
                 self.provider_client(p),
                 p,
                 &credential(app, p)?,
-                &system,
-                &user,
+                system,
+                user,
                 &s.cleanup.output_mode,
             )
             .await;
@@ -939,8 +977,8 @@ impl Inference {
             &self.local_client,
             &server.provider,
             &server.key,
-            &system,
-            &user,
+            system,
+            user,
             &s.cleanup.output_mode,
         )
         .await;

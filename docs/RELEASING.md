@@ -31,7 +31,7 @@ Then create or update `.github/release-request.json` on **main** through the plu
 
 ```json
 {
-  "version": "0.1.20",
+  "version": "0.1.21",
   "publish": true,
   "request_id": "12345678-1234-4234-8234-123456789abc"
 }
@@ -39,7 +39,7 @@ Then create or update `.github/release-request.json` on **main** through the plu
 
 Use the current intended version and a **new UUID** for each request. Do not put `[skip ci]` in the request commit message. That exact immutable request commit is built and becomes the release tag's source. Later commits that leave the request file unchanged do not publish again. Pull requests, forks and other branches cannot publish through this workflow.
 
-Immediately after submitting the request, create a branch such as `release-build/0.1.20` at the returned request commit through the GitHub plugin. Keep that source reference unchanged through publication. If the branch name already exists at another commit, use a new name that includes the request UUID; never move or overwrite an existing release source reference. This keeps the exact built commit explicitly referenced if main advances during the build. GitHub can reject creating a release for an older, unreferenced workflow-changing commit with the job credential; see [GitHub's workflow-scope rule](https://github.blog/changelog/2023-11-02-github-actions-enforcing-workflow-scope-when-creating-a-release/). Codex handles the branch reference as part of publishing, without a personal token.
+Immediately after submitting the request, create a branch such as `release-build/0.1.21` at the returned request commit through the GitHub plugin. Keep that source reference unchanged through publication. If the branch name already exists at another commit, use a new name that includes the request UUID; never move or overwrite an existing release source reference. This keeps the exact built commit explicitly referenced if main advances during the build. GitHub can reject creating a release for an older, unreferenced workflow-changing commit with the job credential; see [GitHub's workflow-scope rule](https://github.blog/changelog/2023-11-02-github-actions-enforcing-workflow-scope-when-creating-a-release/). Codex handles the branch reference as part of publishing, without a personal token.
 
 Artifact downloads by ID explicitly use `merge-multiple: true`, so the five files are extracted directly into the verifier's expected directory. If an older run fails only because of extraction layout, preserve its immutable artifact and successful build record; a narrowly scoped publication job can verify and publish that original artifact without rebuilding or changing its source identity.
 
@@ -95,3 +95,5 @@ Personal evaluation artifacts are unsigned. For public distribution, obtain a Wi
 ## Release gate
 
 Do not label a build production-ready until automated checks and the real Windows acceptance matrix pass. Record OS/build, CPU/RAM, GPU/VRAM, NVIDIA driver, model/runtime versions, tested applications, language/correction examples, latency, packaging, and remaining issues in the validation report. Initial 0.1.0 checks ran in Linux. The [0.1.1 local Windows report](WINDOWS-VALIDATION-2026-10-13.md) records native checks and remaining acceptance work. No signing identity is configured.
+
+Versioned release notes in `docs/releases/VERSION.md` are included in the public release body when present. Keep them user-facing and describe known limitations.

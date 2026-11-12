@@ -44,6 +44,7 @@ There is no hosted CridVoice backend. Rust is the local application backend. Rea
 | `src-tauri/src/warmup.rs` | Selected local model routes and cancellable background preparation tickets |
 | `src-tauri/src/diagnostics.rs` | Concurrent child-pipe draining and fixed diagnostic categories |
 | `src-tauri/src/core.rs` | Endpoint validation, shortcut parsing, prompts, provider responses |
+| `src-tauri/src/fidelity.rs` | Text edit constraints, strict meaning verdicts and Original words policy |
 | `src-tauri/src/coding.rs` | Technical-mode language hints, prompts, fenced output and bounded CLI normalization |
 | `src-tauri/src/downloads.rs` | Verified/resumable downloads and safe runtime extraction |
 | `src-tauri/src/setup.rs` | Native selected-asset/provider readiness before setup completion |
@@ -53,6 +54,10 @@ There is no hosted CridVoice backend. Rust is the local application backend. Rea
 | `src-tauri/resources/service/speech.py` | Python speech worker, GPU DLL search, offline models |
 
 ## Recording and state
+
+Normal Text edits that change more than sentence commas, periods or whitespace pass native wording/detail constraints and a separate bounded meaning request on the same selected cleanup route. Failed, malformed or timed-out verification retains the current take's original transcript. Code modes and explicit selected-text edits use their separate policies. Original words bypasses normal cleanup and its warm-up route. Cancellation/generation and target checks still apply before insertion; verification never grants permission to type into another field.
+
+The recording overlay is shown only when hidden, using the Windows nonactivating show operation. Normal caret-only dictation avoids reading nearby document text. A recreated target requires the same process, parent and control type, verified uniqueness and removal of the original field. Runtime-ID arrays must be bounded 32-bit integer sequences. Missing or ambiguous identity never becomes a wildcard.
 
 When `general.duckBackgroundAudio` is enabled, a recorder-owned guard queues per-session playback reduction on a dedicated Windows MTA thread. Stop/cancel/Drop invalidates the take token and queues restoration without waiting in the final-recognition path. Session-created notifications discover new sessions on the existing active outputs; there is no polling loop. Sessions belonging to CridVoice and system sounds are excluded. The guard restores only an unchanged scalar that it applied, and volume-change notifications retain user adjustments. Normal tray exit allows a bounded restoration wait.
 

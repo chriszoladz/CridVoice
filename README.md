@@ -12,7 +12,7 @@ Say what you mean. Let CridVoice help put it into words.
 
 **Windows 11 x64 · English + Polish · Local AI or your chosen provider**
 
-[Download for Windows](https://github.com/chriszoladz/CridVoice/releases/tag/v0.1.20) · [See the app](#a-look-inside) · [Get started](#getting-started) · [User guide](docs/USER-GUIDE.md)
+[Download for Windows](https://github.com/chriszoladz/CridVoice/releases/tag/v0.1.21) · [See the app](#a-look-inside) · [Get started](#getting-started) · [User guide](docs/USER-GUIDE.md)
 
 </div>
 
@@ -54,7 +54,8 @@ Choose a tone, adjust how much rewriting happens, and tell CridVoice how you wan
 | Feature | What you can do |
 | --- | --- |
 | **Everyday dictation** | Speak into messages, notes, email, and other text fields. |
-| **Clearer writing** | Clean up grammar and rough thoughts, with Light, Balanced, or Thorough rewriting. |
+| **Clearer writing** | Clean up grammar and rough thoughts, with Light, Balanced, or Thorough rewriting. Substantive edits get a separate meaning check. |
+| **Original words** | Use speech recognition directly without AI rewriting. A fast option when you want the recognizer's transcript. |
 | **Your own voice** | Choose a writing style and add preferences for your slang, tone, and formatting. |
 | **Code and commands** | Dictate code literally or generate it from spoken instructions. Detect the language or shell automatically, or choose it yourself. |
 | **English and Polish** | Use automatic language detection or select a language manually. |
@@ -72,15 +73,17 @@ Want grammar fixes without sounding formal? Prefer short paragraphs? Want to kee
 
 Choose **Save preferences**, then use **Light**, **Balanced**, or **Thorough** to control how much rewriting happens. Your intended meaning, facts, and uncertainty come first. Review important details before sending.
 
-Writing preferences apply to normal text. Coding modes handle code and commands separately; generated code opens for review and copying.
+Substantive rewrites are checked against your original transcript using the same selected model or provider. If that check fails or cannot finish, CridVoice uses the original transcript. Simple sentence-punctuation and spacing changes skip the extra request. Choose **Original words** in Writing styles to bypass AI rewriting for normal dictation. Speech recognition can still mishear words; compare the original and edited text in History.
+
+Writing preferences apply to AI-edited normal text. Coding modes handle code and commands separately; generated code opens for review and copying.
 
 ## Getting started
 
-**[Download CridVoice 0.1.20](https://github.com/chriszoladz/CridVoice/releases/tag/v0.1.20)** for Windows 11 x64.
+**[Download CridVoice 0.1.21](https://github.com/chriszoladz/CridVoice/releases/tag/v0.1.21)** for Windows 11 x64.
 
 | Install it | Keep it portable |
 | --- | --- |
-| [Windows installer](https://github.com/chriszoladz/CridVoice/releases/download/v0.1.20/CridVoice-0.1.20-windows-x64-setup.exe) | [Portable ZIP](https://github.com/chriszoladz/CridVoice/releases/download/v0.1.20/CridVoice-0.1.20-windows-x64-portable.zip) |
+| [Windows installer](https://github.com/chriszoladz/CridVoice/releases/download/v0.1.21/CridVoice-0.1.21-windows-x64-setup.exe) | [Portable ZIP](https://github.com/chriszoladz/CridVoice/releases/download/v0.1.21/CridVoice-0.1.21-windows-x64-portable.zip) |
 
 Run the installer, or extract the entire portable ZIP and open `CridVoice.exe`. Keep the portable files together. The current download is an unsigned prerelease.
 

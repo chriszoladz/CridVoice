@@ -1040,9 +1040,9 @@ export function Styles({
           </Field>
         </div>
         <p className="helper">
-          Your meaning, facts, uncertainty and distinct points come first at
-          every strength. Application rules change tone; this strength applies
-          across Text styles.
+          Rewritten text is checked against your original words. If the check
+          fails, CridVoice uses the original transcript. Original words skips AI
+          rewriting entirely. These choices apply to Text mode.
         </p>
         <WritingPreferences
           settings={settings}
@@ -1051,7 +1051,9 @@ export function Styles({
         />
         <div className="style-example">
           <strong>
-            Style example · {exampleStyle} · {strength.name}
+            {rewriteStrength === "original"
+              ? "Original transcript · no AI rewriting"
+              : `Style example · ${exampleStyle} · ${strength.name}`}
           </strong>
           <small>Illustrative result. Exact AI wording may vary.</small>
           <small>

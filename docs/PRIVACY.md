@@ -16,6 +16,10 @@ Local inference/provider HTTP requests use a client that bypasses proxies for lo
 
 The application-rule editor obtains a bounded, deduplicated list of process names for visible top-level windows when opened/refreshed. It does not retrieve window titles, text, executable paths, or command lines for this list. Recent choices come from existing History app names. Choosing a rule saves its executable-name matcher, style, and optional guidance through the existing settings schema.
 
+## Meaning checks
+
+Substantive Text rewrites receive a second request to the same selected cleanup model/provider. That request contains the current original transcript, proposed edit, vocabulary hints and applicable saved wording preferences. It does not include nearby application text, earlier dictations, window titles or screenshots, and it never selects another provider automatically. Local checks remain local. API checks use the configured provider and can incur its normal usage charges. Original words bypasses cleanup and verification during normal dictation.
+
 ## Audio lifecycle
 
 Rust captures microphone PCM in memory during recording. Provisional snapshots and final WAV files are written to the private `recordings/` directory for the Python worker or selected audio provider. WAV files are removed after their requests complete. Cancel invalidates the operation and prevents insertion; an already-running inference request can finish before its temporary file is removed. Crash leftovers are deleted on the next launch. Audio is never included in transcript history. Local live preview sends only a rolling six-second audio snapshot to a separate two-thread CPU worker using installed Tiny weights. Provisional text remains session state; it is not separately written to History. Final recognition and cleanup use the complete take independently. Tiny is downloaded only through an explicit setup/repair or Models action, and only local speech with live preview enabled requires it.

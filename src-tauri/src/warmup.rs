@@ -39,19 +39,21 @@ impl Selection {
                     vec![settings.transcription.model_id.clone()]
                 },
             }),
-            cleanup: (settings.cleanup.mode == "managed").then(|| Route {
-                model_id: settings.cleanup.model_id.clone(),
-                device: if cleanup_gpu { "vulkan" } else { "cpu" }.into(),
-                assets: vec![
-                    settings.cleanup.model_id.clone(),
-                    if cleanup_gpu {
-                        "llama-gpu"
-                    } else {
-                        "llama-cpu"
-                    }
-                    .into(),
-                ],
-            }),
+            cleanup: (settings.cleanup.mode == "managed" && settings.cleanup.automatic()).then(
+                || Route {
+                    model_id: settings.cleanup.model_id.clone(),
+                    device: if cleanup_gpu { "vulkan" } else { "cpu" }.into(),
+                    assets: vec![
+                        settings.cleanup.model_id.clone(),
+                        if cleanup_gpu {
+                            "llama-gpu"
+                        } else {
+                            "llama-cpu"
+                        }
+                        .into(),
+                    ],
+                },
+            ),
             preview: (settings.transcription.mode == "local" && settings.appearance.live_preview)
                 .then(|| Route {
                     model_id: "whisper-preview".into(),

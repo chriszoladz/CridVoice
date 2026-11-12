@@ -404,7 +404,7 @@ pub fn implicit_rewrite(settings: &Settings, context: &Context, raw: &str, expli
     explicit
         || (settings.cleanup.output_mode == "text"
             && !context.selected.is_empty()
-            && settings.cleanup.mode != "off"
+            && settings.cleanup.automatic()
             && crate::core::is_rewrite_instruction(raw))
 }
 

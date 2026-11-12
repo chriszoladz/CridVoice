@@ -64,8 +64,8 @@ class SpeechWarmBoundaryTests(unittest.TestCase):
     def final_options(self, language=None):
         return dict(language=language, task='transcribe', beam_size=5,
                     vad_filter=True, vad_parameters={'min_silence_duration_ms': 450},
-                    condition_on_previous_text=True,
-                    initial_prompt='English and Polish dictation. CridVoice',
+                    condition_on_previous_text=False, temperature=0,
+                    initial_prompt='CridVoice',
                     hallucination_silence_threshold=1.5, no_speech_threshold=0.6)
 
     def test_warm_uses_only_synthetic_audio_consumes_output_and_reuses_cache(self):

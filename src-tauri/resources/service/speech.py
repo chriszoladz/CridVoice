@@ -181,12 +181,15 @@ def transcribe(request: dict, root: Path) -> dict:
     options = dict(language=None if language == 'auto' else language,
         task='transcribe', beam_size=5,
         vad_filter=True, vad_parameters={'min_silence_duration_ms': 450},
-        condition_on_previous_text=True, initial_prompt='English and Polish dictation. ' + hints,
+        # Avoid feeding a guessed phrase or previous segment back into the
+        # recognizer. Vocabulary is spelling context, never a sentence to echo.
+        condition_on_previous_text=False, initial_prompt=hints or None,
+        temperature=0,
         hallucination_silence_threshold=1.5, no_speech_threshold=0.6)
     if request.get('preview'):
         # Provisional text needs one greedy pass, without timestamp tokens or
         # the library's multi-temperature/candidate fallback. Final recognition
-        # keeps its original decoding options and independently reads all audio.
+        # keeps beam search and independently reads all audio.
         options.update(beam_size=1, best_of=1, temperature=0,
                        condition_on_previous_text=False, without_timestamps=True)
     if _preview_worker:

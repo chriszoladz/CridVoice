@@ -6,6 +6,13 @@ export const writingExampleInput =
 
 export const rewriteStrengths = [
   {
+    value: "original",
+    name: "Original words",
+    label: "Original words · no AI rewriting",
+    description:
+      "Use the speech recognizer's transcript directly. Fastest output; writing styles and preferences are bypassed.",
+  },
+  {
     value: "light",
     name: "Light",
     label: "Light · grammar & punctuation",
@@ -83,11 +90,16 @@ const examples = {
       "Sign-in fix in auth.ts ready; I haven’t tested mobile yet.\n\nRelease review Thursday around two.\n\nI’m not promising we can ship then. Maya’s approval still needed.",
     code: "The sign-in fix in auth.ts is ready; I have not tested mobile yet.\n\nThe release review is Thursday around two.\n\nI am not promising we can ship then. Maya’s approval is still needed.",
   },
-} satisfies Record<RewriteStrength, Record<string, string>>;
+} satisfies Record<
+  Exclude<RewriteStrength, "original">,
+  Record<string, string>
+>;
 
 export function writingExample(style: string, strength: string = "balanced") {
+  if (strength === "original")
+    return { input: writingExampleInput, output: writingExampleInput };
   const chosenStrength = Object.hasOwn(examples, strength)
-    ? (strength as RewriteStrength)
+    ? (strength as Exclude<RewriteStrength, "original">)
     : "balanced";
   const chosenStyle = Object.hasOwn(examples[chosenStrength], style)
     ? (style as keyof typeof examples.balanced)

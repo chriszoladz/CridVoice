@@ -14,6 +14,7 @@ import { command, desktop, getSnapshot } from "./bridge";
 import ProviderModelPicker from "./ProviderModelPicker";
 import { BrandMark } from "./BrandMark";
 import { getSetupPlan, inferSetupProvider, inferSetupRoute } from "./setupPlan";
+import { automaticCleanup } from "./localModelStatus";
 import type { SetupRoute } from "./setupPlan";
 import {
   Badge,
@@ -228,6 +229,7 @@ export default function Onboarding({
     );
     if (
       settings.cleanup.mode === "provider" &&
+      automaticCleanup(settings) &&
       (!cleanupProvider?.baseUrl.trim() || !cleanupProvider.model.trim())
     ) {
       setSetupError("Select a text provider with its URL and text model ID.");

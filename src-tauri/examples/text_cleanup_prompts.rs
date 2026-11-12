@@ -310,7 +310,15 @@ fn main() {
                     input["mode"] == "rewrite",
                     &context,
                 );
-                json!({"id":reply["id"],"text":text,"rejected":false})
+                let raw = input["transcript"].as_str().unwrap();
+                let needs_check = cridvoice_lib::fidelity::needs_check(&settings, raw, &text, &context, false);
+                let check = cridvoice_lib::fidelity::messages(&settings, raw, &text, &context);
+                let provider = Provider { id:"managed".into(),name:String::new(),protocol:"openai".into(),
+                    base_url:"http://127.0.0.1".into(),model:"local".into(),stt_model:String::new(),has_key:false };
+                json!({"id":reply["id"],"text":text,"rejected":false,
+                    "needsMeaningCheck":needs_check,
+                    "nativeRejected":!cridvoice_lib::fidelity::preserves_critical_details(&settings,raw,&text,&context),
+                    "meaningPayload":chat_payload_output(&provider,cridvoice_lib::fidelity::SYSTEM,&check,"text")})
             })
             .collect();
         println!("{}", serde_json::to_string_pretty(&output).unwrap());

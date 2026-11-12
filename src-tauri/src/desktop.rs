@@ -195,8 +195,19 @@ fn session_emit(app: &AppHandle) {
         if ["recording", "transcribing", "cleaning", "inserting"].contains(&s.status.as_str())
             && state.settings.lock().unwrap().appearance.overlay_visible
         {
-            let _ = window.show();
-        } else {
+            // Audio levels emit frequently. Show only on a visibility change,
+            // and explicitly keep the caret in the user's application.
+            if !window.is_visible().unwrap_or(false) {
+                if let Ok(handle) = window.hwnd() {
+                    unsafe {
+                        let _ = windows::Win32::UI::WindowsAndMessaging::ShowWindowAsync(
+                            windows::Win32::Foundation::HWND(handle.0),
+                            windows::Win32::UI::WindowsAndMessaging::SW_SHOWNOACTIVATE,
+                        );
+                    }
+                }
+            }
+        } else if window.is_visible().unwrap_or(false) {
             let _ = window.hide();
         }
     }
@@ -367,7 +378,7 @@ async fn start(
     }
     crate::setup::validate_readiness(&s, &state.root, state.hardware.cuda_available)?;
     let context = if s.cleanup.output_mode == "text" {
-        native::context(s.general.context)
+        native::context(s.general.context && (s.cleanup.automatic() || rewrite))
     } else {
         native::context_for_output(s.general.context, true)
     };
@@ -686,8 +697,8 @@ async fn process_recording(app: &AppHandle, recording: FinishedRecording) -> Res
         return Ok(());
     }
     // A cleanup failure preserves the raw transcript; it never switches provider.
-    let (output, cleanup_error) = match cleaned {
-        Ok(output) => (output, None),
+    let (output, cleanup_error, original_used) = match cleaned {
+        Ok((output, original_used)) => (output, None, original_used),
         Err(e) => (
             crate::coding::Output {
                 text: raw.to_owned(),
@@ -696,9 +707,10 @@ async fn process_recording(app: &AppHandle, recording: FinishedRecording) -> Res
             Some(format!(
                 "Text cleanup failed: {e} The raw transcript is available to copy."
             )),
+            true,
         ),
     };
-    let result_is_raw = cleanup_error.is_some();
+    let result_is_raw = original_used;
     let coding_language = if s.cleanup.output_mode == "text" || result_is_raw {
         None
     } else {
@@ -707,8 +719,10 @@ async fn process_recording(app: &AppHandle, recording: FinishedRecording) -> Res
     let text = output.text;
     let review_required = crate::coding::review_required(&s, &target, &text);
     let mut insertion_error = None;
+    let cleanup_allows_insertion =
+        cleanup_error.is_none() || (s.cleanup.output_mode == "text" && !rewrite);
     let inserted = if crate::coding::automatic_insertion(&s, &target, should_insert, &text)
-        && cleanup_error.is_none()
+        && cleanup_allows_insertion
     {
         if !status_if_current(app, generation, "inserting").await {
             return Ok(());
@@ -735,7 +749,7 @@ async fn process_recording(app: &AppHandle, recording: FinishedRecording) -> Res
     let copy_requested = s.general.copy_dictation_to_clipboard
         && should_insert
         && !review_required
-        && cleanup_error.is_none();
+        && cleanup_allows_insertion;
     let clipboard_error = if copy_requested {
         crate::clipboard::copy_result(&text, app, &|| {
             state.generation.load(Ordering::SeqCst) == generation

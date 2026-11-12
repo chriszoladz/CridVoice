@@ -5,11 +5,13 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import type { Settings } from "./types";
+import { automaticCleanup } from "./localModelStatus";
 
 export function processingRoute(settings: Settings) {
   const localSpeech = settings.transcription.mode === "local";
-  const localCleanup = settings.cleanup.mode === "managed";
-  const cleanupOff = settings.cleanup.mode === "off";
+  const localCleanup =
+    settings.cleanup.mode === "managed" && automaticCleanup(settings);
+  const cleanupOff = !automaticCleanup(settings);
   const providerName = (id: string) =>
     settings.providers.find((provider) => provider.id === id)?.name ||
     "not selected";
@@ -17,7 +19,9 @@ export function processingRoute(settings: Settings) {
     ? "Local model"
     : `Provider (${providerName(settings.transcription.providerId)})`;
   const cleanup = cleanupOff
-    ? "Off"
+    ? settings.cleanup.rewriteStrength === "original"
+      ? "Original words"
+      : "Off"
     : localCleanup
       ? "Local model"
       : `Provider (${providerName(settings.cleanup.providerId)})`;

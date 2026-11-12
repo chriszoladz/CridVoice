@@ -94,9 +94,12 @@ def publish(client, folder, version, commit):
     marker = f'<!-- cridvoice-release-v1 source={commit} manifest={sha(folder / INFO)} -->'
     existing = client.api(PREFIX + f'releases/tags/{tag}', optional=True)
     if existing is None:
+        notes_path = Path(__file__).resolve().parents[1] / 'docs' / 'releases' / f'{version}.md'
+        changes = notes_path.read_text(encoding='utf-8').strip() if notes_path.is_file() else ''
         notes = (f'## CridVoice {version}\n\nUnsigned Windows 11 x64 evaluation build.\n\n'
                  'Download the setup EXE for installation, or extract the entire portable ZIP to a writable folder. '
                  'The installer ZIP contains the same setup EXE. First-run setup downloads selected models with progress.\n\n'
+                 f'{changes}\n\n'
                  f'Source: `{commit}`. SHA-256 checksums and BUILD-INFO.json are attached.\n\n{marker}')
         existing = client.api(PREFIX + 'releases', 'POST', {'tag_name': tag, 'target_commitish': commit,
                               'name': f'CridVoice {version}', 'body': notes, 'draft': True,

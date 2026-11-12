@@ -46,7 +46,7 @@ pub fn required_local_assets(
             required.push("whisper-preview".into());
         }
     }
-    if settings.cleanup.mode == "managed" {
+    if settings.cleanup.mode == "managed" && settings.cleanup.automatic() {
         // Explicit GPU cleanup uses Vulkan. It is not an NVIDIA-only gate.
         if !catalog
             .iter()
@@ -96,6 +96,7 @@ pub fn validate_readiness(
         return Err("Select an audio-capable provider and its speech model in Settings.".into());
     }
     if settings.cleanup.mode == "provider"
+        && settings.cleanup.automatic()
         && !settings.providers.iter().any(|provider| {
             provider.id == settings.cleanup.provider_id && !provider.model.trim().is_empty()
         })
@@ -109,6 +110,19 @@ pub fn validate_readiness(
 mod tests {
     use super::*;
     use crate::config::Provider;
+    #[test]
+    fn original_words_skips_only_the_unused_cleanup_assets() {
+        let mut s = Settings::default();
+        s.cleanup.rewrite_strength = "original".into();
+        assert_eq!(
+            required_local_assets(&s, false).unwrap(),
+            ["whisper-turbo", "whisper-preview"]
+        );
+        s.cleanup.output_mode = "code".into();
+        assert!(required_local_assets(&s, false)
+            .unwrap()
+            .contains(&"qwen3-4b".into()));
+    }
 
     #[test]
     fn local_device_matrix_includes_both_engines_and_runtimes() {

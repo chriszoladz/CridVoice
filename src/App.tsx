@@ -62,7 +62,7 @@ import ProcessingStatus from "./ProcessingStatus";
 import TranscriptPreview from "./TranscriptPreview";
 import { BrandLockup, BrandMark } from "./BrandMark";
 import { getSetupPlan } from "./setupPlan";
-import { selectedLocalModels } from "./localModelStatus";
+import { automaticCleanup, selectedLocalModels } from "./localModelStatus";
 import { defaultSettings, emptySession } from "./types";
 import type {
   DownloadProgress,
@@ -681,7 +681,8 @@ export default function App() {
     activeDownloadStates.includes(d.state),
   ).length;
   const localSpeech = settings.transcription.mode === "local",
-    localCleanup = settings.cleanup.mode === "managed";
+    localCleanup =
+      settings.cleanup.mode === "managed" && automaticCleanup(settings);
   const setupPlan = getSetupPlan(settings, snapshot.hardware, snapshot.models);
   const speechReady = localSpeech
     ? true
@@ -692,7 +693,7 @@ export default function App() {
           !!p.sttModel,
       );
   const cleanupReady =
-    settings.cleanup.mode === "off" ||
+    !automaticCleanup(settings) ||
     (localCleanup
       ? true
       : settings.providers.some(
@@ -764,12 +765,13 @@ export default function App() {
   const speechDescription = localSpeech
     ? `${modelName(settings.transcription.modelId)} · ${settings.transcription.device === "auto" ? "Automatic device" : settings.transcription.device === "cpu" ? "CPU" : "CUDA GPU"}`
     : `${speechProvider?.name || "Provider not selected"}${speechProvider?.sttModel ? ` · ${speechProvider.sttModel}` : ""}`;
-  const cleanupDescription =
-    settings.cleanup.mode === "off"
-      ? "Off · raw transcript"
-      : localCleanup
-        ? `${modelName(settings.cleanup.modelId)} · ${settings.cleanup.device === "auto" ? "Automatic device" : settings.cleanup.device === "cpu" ? "CPU" : "Vulkan GPU"}`
-        : `${cleanupProvider?.name || "Provider not selected"}${cleanupProvider?.model ? ` · ${cleanupProvider.model}` : ""}`;
+  const cleanupDescription = !automaticCleanup(settings)
+    ? settings.cleanup.rewriteStrength === "original"
+      ? "Original words · no AI rewriting"
+      : "Off · raw transcript"
+    : localCleanup
+      ? `${modelName(settings.cleanup.modelId)} · ${settings.cleanup.device === "auto" ? "Automatic device" : settings.cleanup.device === "cpu" ? "CPU" : "Vulkan GPU"}`
+      : `${cleanupProvider?.name || "Provider not selected"}${cleanupProvider?.model ? ` · ${cleanupProvider.model}` : ""}`;
   return (
     <div className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
       <aside
@@ -1138,6 +1140,12 @@ export default function App() {
               )}
               {session.result && (
                 <div className="result-card">
+                  {session.resultIsRaw && session.outputMode === "text" && (
+                    <p className="helper" role="status">
+                      Original transcript used. AI rewriting was skipped or
+                      could not be verified.
+                    </p>
+                  )}
                   <div>
                     <strong>
                       {session.resultIsRaw

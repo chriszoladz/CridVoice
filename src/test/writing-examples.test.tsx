@@ -41,9 +41,19 @@ function snapshot(settings: Settings): Snapshot {
 }
 
 describe("Local writing style illustrations", () => {
+  it("keeps Original words unchanged across every writing style", () => {
+    for (const style of writingStyles) {
+      expect(writingExample(style.value, "original")).toEqual({
+        input: writingExampleInput,
+        output: writingExampleInput,
+      });
+    }
+  });
   it("preserves every point, uncertainty and corrected date across all style and strength illustrations", () => {
     const matrix = new Set<string>();
-    for (const strength of rewriteStrengths) {
+    for (const strength of rewriteStrengths.filter(
+      (strength) => strength.value !== "original",
+    )) {
       const outputs = new Set<string>();
       for (const style of writingStyles) {
         const example = writingExample(style.value, strength.value);
@@ -73,7 +83,11 @@ describe("Local writing style illustrations", () => {
         writingExample("concise", strength.value).output.length,
       ).toBeLessThan(writingExample("faithful", strength.value).output.length);
     }
-    expect(matrix.size).toBe(writingStyles.length * rewriteStrengths.length);
+    expect(matrix.size).toBe(
+      writingStyles.length *
+        rewriteStrengths.filter((strength) => strength.value !== "original")
+          .length,
+    );
   });
 
   it("keeps the legacy technical style as identifier-preserving prose, with meaningful newlines", () => {
@@ -198,7 +212,7 @@ describe("Local writing style illustrations", () => {
       ).toBe(writingExample("casual", strength.value).output);
       expect(screen.getByText(strength.description)).toBeVisible();
     }
-    expect(updates).toHaveBeenCalledTimes(3);
+    expect(updates).toHaveBeenCalledTimes(rewriteStrengths.length);
   });
 
   it("explains when cleanup or the active output mode prevents writing styles from applying", () => {

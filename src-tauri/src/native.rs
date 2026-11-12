@@ -1009,12 +1009,14 @@ unsafe fn sample_context(
         }
         let mut retained = None;
         if let Ok(focused) = ui.GetFocusedElement() {
+            // Password protection applies even when a provider does not expose
+            // an editable pattern or a usable runtime identity.
+            ctx.password = focused
+                .CurrentIsPassword()
+                .map(|v| v.as_bool())
+                .unwrap_or(true);
             if let Some(element) = canonical_input(ui, &focused, hwnd) {
-                ctx.password = focused
-                    .CurrentIsPassword()
-                    .map(|v| v.as_bool())
-                    .unwrap_or(true);
-                ctx.password = element
+                ctx.password |= element
                     .CurrentIsPassword()
                     .map(|v| v.as_bool())
                     .unwrap_or(true)
@@ -1024,20 +1026,23 @@ unsafe fn sample_context(
                     let _ = SafeArrayDestroy(id);
                 }
                 if request.identify_app || ctx.focused_runtime_id != request.expected_id {
-                    ctx.focus_anchor = stable_anchor(ui, &element);
+                    let (anchor, absent_from_parent) =
+                        stable_anchor(ui, &element, &request.expected_id);
+                    ctx.focus_anchor = anchor;
                     ctx.focus_anchor.original_unavailable = original
                         .filter(|(id, _)| *id == request.expected_id)
                         .is_some_and(|(_, old)| {
-                            replacement_error_proves_removal(
-                                old.CurrentIsEnabled()
-                                    .err()
-                                    .map(|error| error.code().0 as u32),
-                            )
+                            absent_from_parent
+                                || replacement_error_proves_removal(
+                                    old.CurrentIsEnabled()
+                                        .err()
+                                        .map(|error| error.code().0 as u32),
+                                )
                         });
                 }
                 retained = Some(element.clone());
                 if request.read_text && !ctx.password && !ctx.focused_runtime_id.is_empty() {
-                    if GetForegroundWindow() == hwnd {
+                    if request.technical && GetForegroundWindow() == hwnd {
                         let mut title = [0u16; 257];
                         let length = GetWindowTextW(hwnd, &mut title);
                         if length > 0 {
@@ -1056,38 +1061,42 @@ unsafe fn sample_context(
                                     }
                                 }
                             }
-                            ctx.nearby = text
-                                .DocumentRange()
-                                .and_then(|r| {
-                                    if request.technical {
-                                        // Read the recent terminal/editor tail, not an old
-                                        // shell prompt at the start of a long scrollback.
-                                        let tail = r.Clone()?;
-                                        tail.MoveEndpointByRange(
-                                            TextPatternRangeEndpoint_Start,
-                                            &r,
-                                            TextPatternRangeEndpoint_End,
-                                        )?;
-                                        tail.MoveEndpointByUnit(
-                                            TextPatternRangeEndpoint_Start,
-                                            TextUnit_Character,
-                                            -2048,
-                                        )?;
-                                        tail.GetText(2048)
-                                    } else {
-                                        r.GetText(2048)
-                                    }
-                                })
-                                .map(|b| b.to_string())
-                                .unwrap_or_default();
+                            // Normal dictation does not use nearby text. Avoid
+                            // a costly cross-process document read for a caret.
+                            if request.technical || !ctx.selected.is_empty() {
+                                ctx.nearby = text
+                                    .DocumentRange()
+                                    .and_then(|r| {
+                                        if request.technical {
+                                            // Read the recent terminal/editor tail, not an old
+                                            // shell prompt at the start of a long scrollback.
+                                            let tail = r.Clone()?;
+                                            tail.MoveEndpointByRange(
+                                                TextPatternRangeEndpoint_Start,
+                                                &r,
+                                                TextPatternRangeEndpoint_End,
+                                            )?;
+                                            tail.MoveEndpointByUnit(
+                                                TextPatternRangeEndpoint_Start,
+                                                TextUnit_Character,
+                                                -2048,
+                                            )?;
+                                            tail.GetText(2048)
+                                        } else {
+                                            r.GetText(2048)
+                                        }
+                                    })
+                                    .map(|b| b.to_string())
+                                    .unwrap_or_default();
+                            }
                         }
                     } else if let Ok(pattern) = element.GetCurrentPattern(UIA_ValuePatternId) {
                         if let Ok(value) = pattern.cast::<IUIAutomationValuePattern>() {
-                            ctx.nearby = value
-                                .CurrentValue()
-                                .map(|b| {
-                                    let value = b.to_string();
-                                    if request.technical {
+                            if request.technical {
+                                ctx.nearby = value
+                                    .CurrentValue()
+                                    .map(|b| {
+                                        let value = b.to_string();
                                         value
                                             .chars()
                                             .rev()
@@ -1096,11 +1105,9 @@ unsafe fn sample_context(
                                             .into_iter()
                                             .rev()
                                             .collect()
-                                    } else {
-                                        value.chars().take(2048).collect()
-                                    }
-                                })
-                                .unwrap_or_default()
+                                    })
+                                    .unwrap_or_default()
+                            }
                         }
                     }
                 }
@@ -1134,7 +1141,8 @@ unsafe fn canonical_input(
         UIA_GroupControlTypeId,
         UIA_CustomControlTypeId,
     ]
-    .contains(&leaf_type);
+    .contains(&leaf_type)
+        || leaf_type == UIA_PaneControlTypeId && direct_text_input(focused, leaf_type);
     let mut found_editor = editing_host(focused, leaf_type);
     let mut candidate =
         (found_editor || direct_text_input(focused, leaf_type)).then(|| focused.clone());
@@ -1166,15 +1174,41 @@ unsafe fn canonical_input(
 }
 
 unsafe fn editing_host(element: &IUIAutomationElement, kind: UIA_CONTROLTYPE_ID) -> bool {
-    kind == UIA_EditControlTypeId
-        || kind == UIA_DocumentControlTypeId
-            && element.GetCurrentPattern(UIA_TextEditPatternId).is_ok()
-        || [UIA_CustomControlTypeId, UIA_ComboBoxControlTypeId].contains(&kind)
-            && element
-                .GetCurrentPattern(UIA_ValuePatternId)
-                .and_then(|pattern| pattern.cast::<IUIAutomationValuePattern>())
+    if [
+        UIA_EditControlTypeId,
+        UIA_DocumentControlTypeId,
+        UIA_CustomControlTypeId,
+        UIA_ComboBoxControlTypeId,
+    ]
+    .contains(&kind)
+    {
+        if let Ok(pattern) = element.GetCurrentPattern(UIA_ValuePatternId) {
+            return pattern
+                .cast::<IUIAutomationValuePattern>()
                 .and_then(|value| value.CurrentIsReadOnly())
-                .is_ok_and(|read_only| !read_only.as_bool())
+                .is_ok_and(|value| !value.as_bool());
+        }
+    }
+    [UIA_EditControlTypeId, UIA_DocumentControlTypeId].contains(&kind)
+        && (element.GetCurrentPattern(UIA_TextEditPatternId).is_ok()
+            || writable_text_range(element))
+}
+
+unsafe fn writable_text_range(element: &IUIAutomationElement) -> bool {
+    let value = element
+        .GetCurrentPattern(UIA_TextPatternId)
+        .and_then(|pattern| pattern.cast::<IUIAutomationTextPattern>())
+        .and_then(|pattern| pattern.DocumentRange())
+        .and_then(|range| range.GetAttributeValue(UIA_IsReadOnlyAttributeId));
+    let Ok(mut value) = value else {
+        return false;
+    };
+    // Only an explicit VARIANT_BOOL false proves writability. Mixed/unsupported
+    // attributes are not permissions. This reads metadata, never document text.
+    let writable = value.Anonymous.Anonymous.vt == windows::Win32::System::Variant::VT_BOOL
+        && value.Anonymous.Anonymous.Anonymous.boolVal.0 == 0;
+    let _ = windows::Win32::System::Variant::VariantClear(&mut value);
+    writable
 }
 
 unsafe fn direct_text_input(element: &IUIAutomationElement, kind: UIA_CONTROLTYPE_ID) -> bool {
@@ -1206,7 +1240,11 @@ unsafe fn element_runtime_id(element: &IUIAutomationElement) -> Vec<i32> {
     result
 }
 
-unsafe fn stable_anchor(ui: &IUIAutomation, element: &IUIAutomationElement) -> FocusAnchor {
+unsafe fn stable_anchor(
+    ui: &IUIAutomation,
+    element: &IUIAutomationElement,
+    expected_id: &[i32],
+) -> (FocusAnchor, bool) {
     let mut anchor = FocusAnchor {
         process_id: element.CurrentProcessId().unwrap_or_default(),
         control_type: element
@@ -1218,55 +1256,69 @@ unsafe fn stable_anchor(ui: &IUIAutomation, element: &IUIAutomationElement) -> F
     if ![UIA_EditControlTypeId, UIA_DocumentControlTypeId]
         .contains(&UIA_CONTROLTYPE_ID(anchor.control_type))
     {
-        return anchor;
+        return (anchor, false);
     }
     let Ok(id) = element.CurrentAutomationId() else {
-        return anchor;
+        return (anchor, false);
     };
     let id = id.to_string();
-    if id.is_empty() || id.len() > 512 || anchor.process_id <= 0 {
-        return anchor;
+    if id.len() > 512 || anchor.process_id <= 0 {
+        return (anchor, false);
     }
     let Ok(walker) = ui.RawViewWalker() else {
-        return anchor;
+        return (anchor, false);
     };
     let Ok(parent) = walker.GetParentElement(element) else {
-        return anchor;
+        return (anchor, false);
     };
     anchor.parent_runtime_id = element_runtime_id(&parent);
     if anchor.parent_runtime_id.is_empty() {
-        return anchor;
+        return (anchor, false);
     }
     // AutomationId is scoped to raw siblings. Prove uniqueness on both capture
     // and replacement, not by a name, placeholder, screen position or ID prefix.
     let Ok(condition) = ui.CreateTrueCondition() else {
-        return anchor;
+        return (anchor, false);
     };
     let Ok(children) = parent.FindAll(TreeScope_Children, &condition) else {
-        return anchor;
+        return (anchor, false);
     };
     let Ok(length) = children.Length() else {
-        return anchor;
+        return (anchor, false);
     };
     if !(1..=128).contains(&length) {
-        return anchor;
+        return (anchor, false);
     }
     let started = Instant::now();
     let mut matches = 0;
+    let mut sibling_ids = Vec::new();
     for index in 0..length {
         if started.elapsed() >= Duration::from_millis(150) {
-            return anchor;
+            return (anchor, false);
         }
         let Ok(child) = children.GetElement(index) else {
-            return anchor;
+            return (anchor, false);
         };
         let Ok(child_id) = child.CurrentAutomationId() else {
-            return anchor;
+            return (anchor, false);
         };
-        if child_id == id {
+        if !expected_id.is_empty() {
+            sibling_ids.push(element_runtime_id(&child));
+        }
+        let matching = if id.is_empty() {
+            // Some Chromium editors have no AutomationId. Their stable host
+            // must have exactly one editor, not merely one unnamed child.
+            let Ok(kind) = child.CurrentControlType() else {
+                return (anchor, false);
+            };
+            editing_host(&child, kind)
+        } else {
+            child_id == id
+        };
+        if matching {
             matches += 1;
             if matches > 1 {
-                return anchor;
+                return (anchor, false);
             }
         }
     }
@@ -1274,7 +1326,27 @@ unsafe fn stable_anchor(ui: &IUIAutomation, element: &IUIAutomationElement) -> F
         anchor.automation_id = id;
         anchor.unique_in_parent = true;
     }
-    anchor
+    let absent =
+        replacement_absent_from_parent(expected_id, &element_runtime_id(element), &sibling_ids);
+    (anchor, absent)
+}
+
+fn replacement_absent_from_parent(
+    expected: &[i32],
+    current: &[i32],
+    siblings: &[Vec<i32>],
+) -> bool {
+    !expected.is_empty()
+        && !current.is_empty()
+        && expected != current
+        && !siblings.is_empty()
+        && siblings.iter().all(|id| !id.is_empty())
+        && siblings
+            .iter()
+            .filter(|id| id.as_slice() == current)
+            .count()
+            == 1
+        && !siblings.iter().any(|id| id == expected)
 }
 
 fn verified_recreated_field(target: &FocusAnchor, current: &FocusAnchor) -> bool {
@@ -1286,7 +1358,6 @@ fn verified_recreated_field(target: &FocusAnchor, current: &FocusAnchor) -> bool
         && target.process_id > 0
         && target.process_id == current.process_id
         && target.control_type == current.control_type
-        && !target.automation_id.is_empty()
         && target.automation_id == current.automation_id
         && !target.parent_runtime_id.is_empty()
         && target.parent_runtime_id == current.parent_runtime_id
@@ -1297,12 +1368,22 @@ fn replacement_error_proves_removal(error: Option<u32>) -> bool {
 }
 
 unsafe fn safe_array_i32(array: *mut SAFEARRAY) -> Vec<i32> {
-    if array.is_null() || SafeArrayGetDim(array) != 1 {
+    if array.is_null()
+        || SafeArrayGetDim(array) != 1
+        || SafeArrayGetVartype(array).ok() != Some(windows::Win32::System::Variant::VT_I4)
+        || SafeArrayGetElemsize(array) != std::mem::size_of::<i32>() as u32
+    {
         return vec![];
     }
     let (Ok(lo), Ok(hi)) = (SafeArrayGetLBound(array, 1), SafeArrayGetUBound(array, 1)) else {
         return vec![];
     };
+    // Runtime IDs are short integer sequences. Reject unexpected provider
+    // metadata rather than copying a larger element into an i32 or truncating
+    // an identity to fit a work limit.
+    if !(1..=64).contains(&(i64::from(hi) - i64::from(lo) + 1)) {
+        return vec![];
+    }
     let mut result = vec![];
     for i in lo..=hi {
         let mut v = 0i32;
@@ -1559,6 +1640,58 @@ fn insertion_error(message: &str, input_started: bool) -> String {
 mod insertion_tests {
     use super::*;
     use std::cell::Cell;
+
+    #[test]
+    fn runtime_identity_arrays_reject_wrong_element_types_and_unbounded_sizes() {
+        use windows::Win32::System::Variant::{VT_I4, VT_I8};
+        unsafe {
+            for (kind, count, accepted) in [(VT_I4, 3, true), (VT_I8, 3, false), (VT_I4, 65, false)]
+            {
+                let array = SafeArrayCreateVector(kind, 0, count);
+                assert!(!array.is_null());
+                let result = safe_array_i32(array);
+                SafeArrayDestroy(array).unwrap();
+                assert_eq!(!result.is_empty(), accepted);
+            }
+        }
+    }
+
+    #[test]
+    fn detached_browser_proxy_requires_a_complete_live_parent_snapshot() {
+        let old = [1, 2];
+        let new = [3, 4];
+        assert!(replacement_absent_from_parent(
+            &old,
+            &new,
+            &[new.to_vec(), vec![5, 6]]
+        ));
+        for siblings in [
+            vec![],
+            vec![old.to_vec(), new.to_vec()],
+            vec![vec![], new.to_vec()],
+            vec![vec![5, 6]],
+            vec![new.to_vec(), new.to_vec()],
+        ] {
+            assert!(!replacement_absent_from_parent(&old, &new, &siblings));
+        }
+        assert!(!replacement_absent_from_parent(&[], &new, &[new.to_vec()]));
+        assert!(!replacement_absent_from_parent(&old, &old, &[old.to_vec()]));
+    }
+
+    #[test]
+    fn idless_editor_replacement_requires_the_same_unique_editor_host_and_removal() {
+        let mut target = replaceable_target();
+        target.focus_anchor.automation_id.clear();
+        let mut current = target.clone();
+        current.focused_runtime_id = vec![4, 5, 6];
+        current.focus_anchor.original_unavailable = true;
+        assert!(validate_insertion_target(&target, &current).is_ok());
+        current.focus_anchor.original_unavailable = false;
+        assert!(validate_insertion_target(&target, &current).is_err());
+        current.focus_anchor.original_unavailable = true;
+        current.focus_anchor.unique_in_parent = false;
+        assert!(validate_insertion_target(&target, &current).is_err());
+    }
 
     fn target() -> Context {
         Context {

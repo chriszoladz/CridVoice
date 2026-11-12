@@ -1,5 +1,12 @@
 # Troubleshooting
 
+## Words changed or the message no longer means what I said
+
+Compare the original and edited text in History. If the original already has the wrong word, try choosing English or Polish explicitly in Settings and add important names in Vocabulary. Final local recognition now uses deterministic decoding without conditioning each segment on an earlier segment.
+
+If only the edited version is wrong, use Light or **Writing styles → Rewrite strength → Original words**. Original words bypasses cleanup; Light, Balanced and Thorough independently check substantive rewrites and use the original transcript when a check fails. Saved writing preferences can specify the wording you want, but cannot authorize invented facts or commitments.
+
+For intermittent insertion, update to 0.1.21. The recording preview is shown without activating its window, and verified replacement of a chat editor can survive a detached accessibility proxy. Keep the caret in the intended field and release both shortcut keys. Password fields, changed windows and ambiguous fields still block automatic input. Enable **Copy dictation to clipboard** in Settings if you also want a persistent copy for Ctrl + V. No extra privileges are granted to other apps.
 ## Speech is in History but did not insert
 
 The transcript is saved before insertion, so a saved result does not prove the target field accepted it. Copy the result from History if needed.

@@ -6,6 +6,16 @@ import type {
   Snapshot,
 } from "./types";
 
+export function automaticCleanup(settings: Settings) {
+  return (
+    settings.cleanup.mode !== "off" &&
+    !(
+      (settings.cleanup.outputMode || "text") === "text" &&
+      settings.cleanup.rewriteStrength === "original"
+    )
+  );
+}
+
 export function selectedLocalModels(
   settings: Settings,
   hardware: Pick<Hardware, "cudaAvailable">,
@@ -24,7 +34,7 @@ export function selectedLocalModels(
   for (const kind of ["speech", "preview", "cleanup"] as const) {
     if (
       kind === "cleanup"
-        ? settings.cleanup.mode !== "managed"
+        ? settings.cleanup.mode !== "managed" || !automaticCleanup(settings)
         : settings.transcription.mode !== "local" ||
           (kind === "preview" && !settings.appearance.livePreview)
     )

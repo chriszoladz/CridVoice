@@ -25,6 +25,10 @@ Select Automatic to prefer detected NVIDIA hardware, GPU to require it, or CPU t
 
 Select CPU for both engines. Speech uses int8 compute; GPU speech uses int8/float16. CPU threads are capped at 16 in the speech worker. Whisper Small provides a lighter multilingual option; larger models can be slow on CPU. CPU text inference uses zero GPU layers. The runtime chooses its compatible CPU backend from the shipped llama.cpp distribution.
 
+## Accuracy and model choices
+
+No additional model download is required for Text meaning checks: the selected cleanup model performs the separate check. Punctuation/spacing-only edits skip it. Local checks have a bounded reasoning budget and a four-second deadline; API checks have a ten-second deadline. A failed or unavailable check retains the original transcript. The added check can increase finishing latency, especially on CPU or remote providers. **Original words** bypasses both cleanup requests and cleanup warming for normal dictation. It leaves the final speech model and separate live-preview model unchanged.
+
 ## Memory and latency
 
 The Models page separates your **Selected** configuration, **Installed** files on disk, and **Models in memory**. Live local engine status identifies the actual resident final speech, CPU preview, or cleanup model and device as unloaded, loading, loaded, or error. In 0.1.4, installed selected local engines warm automatically in the background after launch. A selected or installed model is not ready merely because its files are on disk. Overview shows warming while preparation runs, and a silent take can still complete without loading speech weights.

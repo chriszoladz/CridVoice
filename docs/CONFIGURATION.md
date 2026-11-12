@@ -15,7 +15,7 @@ Settings are serialized as camelCase JSON. Edit through the app; stop it before 
 | `cleanup.device` | `auto` | Auto, GPU, or CPU; managed GPU text uses Vulkan |
 | `cleanup.providerId` | empty | Selected text connection UUID |
 | `cleanup.style` | `faithful` | Faithful, professional, casual, concise, or code |
-| `cleanup.rewriteStrength` | `balanced` | Text editing amount: `light` for grammar/minimal wording, `balanced` for clearer phrasing, or `thorough` for organizing longer thoughts; meaning and facts remain constraints at every level |
+| `cleanup.rewriteStrength` | `balanced` | Text editing amount: `original` bypasses cleanup during normal dictation; `light` fixes grammar/minimal wording; `balanced` improves phrasing; `thorough` organizes thoughts. Substantive edits receive an independent meaning check; failed checks retain the original transcript |
 | `cleanup.writingPreferences` | empty | Optional personal tone, wording and formatting guidance for Text cleanup, up to 2,000 characters; application guidance can refine it while meaning and facts remain constraints |
 | `cleanup.outputMode` | `text` | `text` for prose, `code` for literal code/CLI dictation, or `generate` for code from spoken instructions |
 | `cleanup.codeLanguage` | empty / Auto | Optional freeform language/shell override; at most 80 characters on one line |

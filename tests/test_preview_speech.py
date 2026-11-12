@@ -113,7 +113,7 @@ class PreviewWorkerTests(unittest.TestCase):
                     'beam_size': 1, 'best_of': 1, 'temperature': 0,
                     'vad_filter': True, 'vad_parameters': {'min_silence_duration_ms': 450},
                     'condition_on_previous_text': False, 'without_timestamps': True,
-                    'initial_prompt': 'English and Polish dictation. CridVoice',
+                    'initial_prompt': 'CridVoice',
                     'hallucination_silence_threshold': 1.5, 'no_speech_threshold': 0.6,
                     'max_new_tokens': 64})
                 self.assertEqual(result['text'], 'public fixture')
@@ -153,7 +153,7 @@ class PreviewWorkerTests(unittest.TestCase):
         self.assertEqual(final_model.transcribe.call_args.kwargs, {
             'language': None, 'task': 'transcribe', 'beam_size': 5,
             'vad_filter': True, 'vad_parameters': {'min_silence_duration_ms': 450},
-            'condition_on_previous_text': True, 'initial_prompt': 'English and Polish dictation. ',
+            'condition_on_previous_text': False, 'initial_prompt': None, 'temperature': 0,
             'hallucination_silence_threshold': 1.5, 'no_speech_threshold': 0.6})
 
 

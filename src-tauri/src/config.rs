@@ -61,6 +61,11 @@ impl Default for Cleanup {
         }
     }
 }
+impl Cleanup {
+    pub fn automatic(&self) -> bool {
+        self.mode != "off" && !(self.output_mode == "text" && self.rewrite_strength == "original")
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Provider {
@@ -250,7 +255,7 @@ impl Settings {
         )?;
         one(
             &self.cleanup.rewrite_strength,
-            &["light", "balanced", "thorough"],
+            &["original", "light", "balanced", "thorough"],
             "editing amount",
         )?;
         if self.cleanup.writing_preferences.chars().count() > 2000 {
@@ -343,7 +348,7 @@ mod rewrite_strength_tests {
 
     #[test]
     fn editing_amount_round_trips_and_rejects_unknown_values() {
-        for strength in ["light", "balanced", "thorough"] {
+        for strength in ["original", "light", "balanced", "thorough"] {
             let mut settings = Settings::default();
             settings.cleanup.rewrite_strength = strength.into();
             let saved = serde_json::to_value(&settings).unwrap();

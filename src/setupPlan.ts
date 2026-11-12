@@ -2,6 +2,8 @@ import type { Hardware, ModelInfo, Settings } from "./types";
 
 export type SetupRoute = "managed" | "external" | "cloud";
 
+import { automaticCleanup } from "./localModelStatus";
+
 export function getSetupPlan(
   settings: Settings,
   hardware: Pick<Hardware, "cudaAvailable">,
@@ -18,7 +20,7 @@ export function getSetupPlan(
             ...(settings.appearance.livePreview ? ["whisper-preview"] : []),
           ]
         : []),
-      ...(settings.cleanup.mode === "managed"
+      ...(settings.cleanup.mode === "managed" && automaticCleanup(settings)
         ? [
             settings.cleanup.modelId,
             gpu(settings.cleanup.device) ? "llama-gpu" : "llama-cpu",
@@ -68,7 +70,7 @@ export function getSetupPlan(
       "NVIDIA GPU speech is unavailable. Select CPU or Automatic for speech.",
     );
   }
-  if (settings.cleanup.mode === "provider") {
+  if (settings.cleanup.mode === "provider" && automaticCleanup(settings)) {
     const provider = settings.providers.find(
       (p) => p.id === settings.cleanup.providerId,
     );
@@ -92,7 +94,7 @@ export function getSetupPlan(
 
 export function inferSetupProvider(settings: Settings) {
   return (
-    (settings.cleanup.mode === "provider"
+    (settings.cleanup.mode === "provider" && automaticCleanup(settings)
       ? settings.providers.find(
           (provider) => provider.id === settings.cleanup.providerId,
         )
@@ -106,7 +108,8 @@ export function inferSetupProvider(settings: Settings) {
 }
 
 export function inferSetupRoute(settings: Settings): SetupRoute {
-  if (settings.cleanup.mode === "managed") return "managed";
+  if (settings.cleanup.mode === "managed" && automaticCleanup(settings))
+    return "managed";
   const provider = inferSetupProvider(settings);
   if (!provider) return "managed";
   try {

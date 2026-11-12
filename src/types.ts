@@ -10,7 +10,7 @@ export type Page =
 export type Device = "auto" | "cpu" | "cuda";
 export type Language = "auto" | "en" | "pl";
 export type OutputMode = "text" | "code" | "generate";
-export type RewriteStrength = "light" | "balanced" | "thorough";
+export type RewriteStrength = "original" | "light" | "balanced" | "thorough";
 export interface Provider {
   id: string;
   name: string;

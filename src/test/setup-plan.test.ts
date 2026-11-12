@@ -48,6 +48,22 @@ const provider = (
 });
 
 describe("Selected setup requirements", () => {
+  it("Original words needs only speech assets, but code modes still need cleanup", () => {
+    const settings = structuredClone(defaultSettings);
+    settings.cleanup.rewriteStrength = "original";
+    const plan = getSetupPlan(
+      settings,
+      { cudaAvailable: false },
+      catalog(["whisper-turbo", "whisper-preview"]),
+    );
+    expect(plan.ready).toBe(true);
+    expect(plan.requiredIds).not.toContain("qwen3-4b");
+    settings.cleanup.outputMode = "code";
+    expect(
+      getSetupPlan(settings, { cudaAvailable: false }, catalog(ids))
+        .requiredIds,
+    ).toContain("qwen3-4b");
+  });
   it("requires cleanup for code and generation while leaving normal raw transcription available", () => {
     const settings = structuredClone(defaultSettings);
     settings.cleanup.mode = "off";

@@ -1,6 +1,18 @@
 # Validation report
 
-## Current 0.1.17 adjustable playback reduction
+## 0.1.21 accuracy and insertion checks
+
+Local validation on Windows 11: 234 Rust tests, 180 frontend tests, 52 Python tests and 28 browser-flow tests passed. Two opt-in native tests remain excluded from the ordinary Rust suite. Strict Clippy and the frontend build passed.
+
+The combined native constraints and meaning verifier matched all 27 expected decisions on public synthetic source/edit pairs using the existing Qwen3 4B Q4_K_M model on an RTX 5070 Ti. Cases cover changed names, numbers, negation, uncertainty, conditions, language, slang, explicit address preferences, corrections, quoting and injected instructions. The model alone made mistakes; the native constraints rejected several of those approvals. These tests do not establish perfect semantic equivalence, real speech accuracy or performance on other hardware.
+
+A separate 21-case synthetic writing-prompt evaluation passed 18 expected-fact/format checks before the new meaning gate. Two Polish cases retained an unresolved spoken correction. A Professional/Thorough case dropped details; the new native and model guards both rejected that result. Some acceptable rewrites also received conservative rejection and would retain the original transcript. This is an accuracy/rewriting tradeoff, not a claim that every edit succeeds.
+
+The opt-in owned-window focus test could not obtain foreground permission from Windows in this session and stopped before field assertions. The fixture closed itself without typing, touching the clipboard or reading another application's text. Unit coverage of replacement identities, ambiguity, window changes, passwords and cancellation passed; insertion into a user's actual browser field still needs acceptance testing of this version.
+
+The production JavaScript dependency audit reported zero advisories. Runtime-ID array parsing now checks integer element type, width and a bounded length before copying provider metadata. These targeted checks are not a complete security audit of every native dependency.
+
+## Historical 0.1.17 adjustable playback reduction
 
 The user confirmed repeated 0.1.16 takes inserted correctly in the previously affected chat field, then reported that its fixed 25% playback reduction was too subtle. Version 0.1.17 adds a 10–90% slider with a 60% default. Saved settings without the new amount use that default. A recording snapshots the amount; moving the slider does not alter an active take.
 
