@@ -12,7 +12,7 @@ Say what you mean. Let CridVoice help put it into words.
 
 **Windows 11 x64 · English + Polish · Local AI or your chosen provider**
 
-[Download for Windows](https://github.com/chriszoladz/CridVoice/releases/tag/v0.1.21) · [See the app](#a-look-inside) · [Get started](#getting-started) · [User guide](docs/USER-GUIDE.md)
+[Download for Windows](https://github.com/chriszoladz/CridVoice/releases/tag/v0.1.22) · [See the app](#a-look-inside) · [Get started](#getting-started) · [User guide](docs/USER-GUIDE.md)
 
 </div>
 
@@ -79,11 +79,11 @@ Writing preferences apply to AI-edited normal text. Coding modes handle code and
 
 ## Getting started
 
-**[Download CridVoice 0.1.21](https://github.com/chriszoladz/CridVoice/releases/tag/v0.1.21)** for Windows 11 x64.
+**[Download CridVoice 0.1.22](https://github.com/chriszoladz/CridVoice/releases/tag/v0.1.22)** for Windows 11 x64.
 
 | Install it | Keep it portable |
 | --- | --- |
-| [Windows installer](https://github.com/chriszoladz/CridVoice/releases/download/v0.1.21/CridVoice-0.1.21-windows-x64-setup.exe) | [Portable ZIP](https://github.com/chriszoladz/CridVoice/releases/download/v0.1.21/CridVoice-0.1.21-windows-x64-portable.zip) |
+| [Windows installer](https://github.com/chriszoladz/CridVoice/releases/download/v0.1.22/CridVoice-0.1.22-windows-x64-setup.exe) | [Portable ZIP](https://github.com/chriszoladz/CridVoice/releases/download/v0.1.22/CridVoice-0.1.22-windows-x64-portable.zip) |
 
 Run the installer, or extract the entire portable ZIP and open `CridVoice.exe`. Keep the portable files together. The current download is an unsigned prerelease.
 

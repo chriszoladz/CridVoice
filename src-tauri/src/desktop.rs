@@ -187,30 +187,51 @@ fn hardware() -> Hardware {
     }
     hw
 }
+fn overlay_should_show(status: &str, enabled: bool) -> bool {
+    enabled && ["recording", "transcribing", "cleaning", "inserting"].contains(&status)
+}
+
+fn reconcile_overlay(app: &AppHandle) {
+    // Coalesce frequent audio events, but read the current state on the window
+    // thread. An old queued request must never resurrect an idle/disabled overlay.
+    static PENDING: AtomicBool = AtomicBool::new(false);
+    if PENDING.swap(true, Ordering::AcqRel) {
+        return;
+    }
+    let handle = app.clone();
+    if app
+        .run_on_main_thread(move || {
+            PENDING.store(false, Ordering::Release);
+            let state = handle.state::<State>();
+            let status = state.session.lock().unwrap().status.clone();
+            let enabled = state.settings.lock().unwrap().appearance.overlay_visible;
+            if let Some(window) = handle.get_webview_window("overlay") {
+                if let Ok(hwnd) = window.hwnd() {
+                    unsafe {
+                        use windows::Win32::UI::WindowsAndMessaging::{
+                            IsWindowVisible, ShowWindow, SW_HIDE, SW_SHOWNOACTIVATE,
+                        };
+                        let hwnd = windows::Win32::Foundation::HWND(hwnd.0);
+                        let show = overlay_should_show(&status, enabled);
+                        if IsWindowVisible(hwnd).as_bool() != show {
+                            let _ =
+                                ShowWindow(hwnd, if show { SW_SHOWNOACTIVATE } else { SW_HIDE });
+                        }
+                    }
+                }
+            }
+        })
+        .is_err()
+    {
+        PENDING.store(false, Ordering::Release);
+    }
+}
+
 fn session_emit(app: &AppHandle) {
     let state = app.state::<State>();
     let s = state.session.lock().unwrap().clone();
     let _ = app.emit("session", &s);
-    if let Some(window) = app.get_webview_window("overlay") {
-        if ["recording", "transcribing", "cleaning", "inserting"].contains(&s.status.as_str())
-            && state.settings.lock().unwrap().appearance.overlay_visible
-        {
-            // Audio levels emit frequently. Show only on a visibility change,
-            // and explicitly keep the caret in the user's application.
-            if !window.is_visible().unwrap_or(false) {
-                if let Ok(handle) = window.hwnd() {
-                    unsafe {
-                        let _ = windows::Win32::UI::WindowsAndMessaging::ShowWindowAsync(
-                            windows::Win32::Foundation::HWND(handle.0),
-                            windows::Win32::UI::WindowsAndMessaging::SW_SHOWNOACTIVATE,
-                        );
-                    }
-                }
-            }
-        } else if window.is_visible().unwrap_or(false) {
-            let _ = window.hide();
-        }
-    }
+    reconcile_overlay(app);
 }
 fn status(app: &AppHandle, value: &str) {
     app.state::<State>().session.lock().unwrap().status = value.into();
@@ -976,6 +997,7 @@ fn persist_settings(app: &AppHandle, state: &State, mut settings: Settings) -> R
     *state.shortcuts.lock().unwrap() = settings.shortcuts.clone();
     *state.settings.lock().unwrap() = settings;
     let _ = app.emit("settings-updated", ());
+    reconcile_overlay(app);
     Ok(())
 }
 #[tauri::command]
@@ -1374,6 +1396,17 @@ pub fn run() {
 #[cfg(test)]
 mod overlay_geometry_tests {
     use super::*;
+
+    #[test]
+    fn overlay_is_hidden_when_idle_or_disabled_even_during_processing() {
+        for status in ["idle", "error", "ready", "cancelled"] {
+            assert!(!overlay_should_show(status, true));
+        }
+        for status in ["recording", "transcribing", "cleaning", "inserting"] {
+            assert!(overlay_should_show(status, true));
+            assert!(!overlay_should_show(status, false));
+        }
+    }
 
     #[test]
     fn compact_overlay_is_centered_above_the_primary_monitor_taskbar() {

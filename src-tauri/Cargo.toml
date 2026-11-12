@@ -1,6 +1,6 @@
 [package]
 name = "cridvoice"
-version = "0.1.21"
+version = "0.1.22"
 description = "Personal, local-first Windows dictation"
 authors = ["CridVoice"]
 edition = "2021"
